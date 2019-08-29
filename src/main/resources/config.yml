@@ -1,0 +1,21 @@
+# Address proxy will bind to.
+proxy:
+  host: 0.0.0.0
+  port: 19132
+# Destination server which the client will connect to.
+# You are only able to join offline mode servers
+destination:
+  host: 127.0.0.1
+  port: 19133
+# If the player is playing the game with the correct version
+# The player will be transferred to this address
+outernet-destination:
+  host: ntest.easecation.net
+  port: 19132
+log-level: 1
+
+motd: Multi-version Proxy
+sub-motd: wodeMVP
+max-player: 20
+online-mode: false
+whitelist: false
