@@ -27,13 +27,21 @@ public class ProxySession {
     public ProxySession(BedrockServerSession c2p, BedrockClientSession p2s) {
         this.c2p = c2p;
         this.p2s = p2s;
-        this.c2p.addDisconnectHandler(reason -> {
+        p2s.addDisconnectHandler(reason -> {
+            try {
+                c2p.disconnect(reason.toString().toLowerCase());
+                PlayerManager.getPlayers().remove(c2p);
+            } catch (Exception ignore) {
+
+            }
+        });
+        c2p.addDisconnectHandler(reason -> {
             try {
                 if (reason != DisconnectReason.DISCONNECTED) {
-                    this.p2s.disconnect();
+                    p2s.disconnect();
                 }
                 PlayerManager.getPlayers().remove(c2p);
-                log.info("{}[{}] logged out due to {}", displayName, this.c2p.getAddress(), reason);
+                log.info("{}[{}] logged out due to {}", displayName, c2p.getAddress(), reason.toString().toLowerCase());
             } catch (Exception e) {
                 log.info("{} logged out", displayName);
             }

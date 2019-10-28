@@ -202,7 +202,11 @@ public class Main {
         }
 
         PlayerManager.getPlayers().forEach((session, client) -> {
-            session.disconnect("disconnect.closed");
+            try {
+                session.disconnect("disconnect.closed");
+            } catch (Exception ignore) {
+
+            }
         });
 
         consoleThread.interrupt();

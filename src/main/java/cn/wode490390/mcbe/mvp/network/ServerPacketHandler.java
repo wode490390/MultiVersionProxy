@@ -277,11 +277,14 @@ public class ServerPacketHandler implements BedrockPacketHandler {
         }
         ArrayNode chainData = (ArrayNode) certChainData;
 
-        boolean validChain;
         try {
-            validChain = PacketHelper.validateChainData(certChainData);
+            if (Main.getInstance().getConfig().isOnlineMode() && !PacketHelper.validateChainData(certChainData)) {
+                c2p.disconnect("disconnectionScreen.notAuthenticated");
+                PlayerManager.getPlayers().remove(c2p);
+                log.debug("Player data is invalid");
+                return true;
+            }
 
-            log.debug("Is player data valid? {}", validChain);
             JWSObject jwt = JWSObject.parse(certChainData.get(certChainData.size() - 1).asText());
             JsonNode payload = Main.JSON_MAPPER.readTree(jwt.getPayload().toBytes());
 
@@ -306,7 +309,9 @@ public class ServerPacketHandler implements BedrockPacketHandler {
 
             PlayerManager.newProxy(c2p).connect(Main.getInstance().getTargetAddress()).whenComplete((p2s, throwable) -> {
                 if (throwable != null) {
-                    log.error("Unable to connect to target server", throwable);
+                    c2p.disconnect();
+                    PlayerManager.getPlayers().remove(c2p);
+                    log.error("Unable to connect to the target server", throwable);
                     return;
                 }
 
@@ -340,6 +345,7 @@ public class ServerPacketHandler implements BedrockPacketHandler {
             });
         } catch (Exception e) {
             c2p.disconnect("disconnectionScreen.internalError.cantConnect");
+            PlayerManager.getPlayers().remove(c2p);
             throw new RuntimeException("Unable to complete login", e);
         }
         return true;
