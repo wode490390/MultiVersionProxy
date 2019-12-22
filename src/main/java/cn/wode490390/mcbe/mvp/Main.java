@@ -9,7 +9,7 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.nukkitx.protocol.bedrock.BedrockPacketCodec;
 import com.nukkitx.protocol.bedrock.BedrockServer;
-import com.nukkitx.protocol.bedrock.v361.Bedrock_v361;
+import com.nukkitx.protocol.bedrock.v388.Bedrock_v388;
 import io.netty.util.ResourceLeakDetector;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.netty.util.internal.logging.Log4J2LoggerFactory;
@@ -35,7 +35,7 @@ import org.apache.logging.log4j.core.config.LoggerConfig;
 @Log4j2
 public class Main {
 
-    public static final BedrockPacketCodec CODEC = Bedrock_v361.V361_CODEC;
+    public static final BedrockPacketCodec CODEC = Bedrock_v388.V388_CODEC;
     public static final int PROTOCOL_VERSION = CODEC.getProtocolVersion();
     public static final String MINECRAFT_VERSION = CODEC.getMinecraftVersion();
 
@@ -146,6 +146,7 @@ public class Main {
 
         log.info("Loading server...");
         commandManager = new ConsoleCommandManager(this);
+
         RuntimePaletteManager.init();
         InventoryManager.init();
         PacketHelper.init();
@@ -201,13 +202,7 @@ public class Main {
             }
         }
 
-        PlayerManager.getPlayers().forEach((session, client) -> {
-            try {
-                session.disconnect("disconnect.closed");
-            } catch (Exception ignore) {
-
-            }
-        });
+        server.close("disconnect.closed");
 
         consoleThread.interrupt();
     }

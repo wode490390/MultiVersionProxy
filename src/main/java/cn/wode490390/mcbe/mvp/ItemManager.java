@@ -7,6 +7,6 @@ public class ItemManager { //TODO
     }
 
     public static void init() {
-        //nothing
+        //NOOP
     }
 }

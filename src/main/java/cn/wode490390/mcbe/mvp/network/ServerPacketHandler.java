@@ -18,6 +18,7 @@ import com.nukkitx.protocol.bedrock.v332.Bedrock_v332;
 import com.nukkitx.protocol.bedrock.v340.Bedrock_v340;
 import com.nukkitx.protocol.bedrock.v354.Bedrock_v354;
 import com.nukkitx.protocol.bedrock.v361.Bedrock_v361;
+import com.nukkitx.protocol.bedrock.v388.Bedrock_v388;
 import io.netty.util.AsciiString;
 import java.io.IOException;
 import java.security.interfaces.ECPublicKey;
@@ -45,6 +46,14 @@ public class ServerPacketHandler implements BedrockPacketHandler {
 
     @Override
     public boolean handle(AnimatePacket packet) {
+        if (c2p.getPacketCodec().getProtocolVersion() != Main.PROTOCOL_VERSION) {
+            session.sendPacketToServer(packet);
+        }
+        return true;
+    }
+
+    @Override
+    public boolean handle(AnvilDamagePacket packet) { //1.13+
         if (c2p.getPacketCodec().getProtocolVersion() != Main.PROTOCOL_VERSION) {
             session.sendPacketToServer(packet);
         }
@@ -148,6 +157,14 @@ public class ServerPacketHandler implements BedrockPacketHandler {
     }
 
     @Override
+    public boolean handle(EmotePacket packet) { //1.13+
+        if (c2p.getPacketCodec().getProtocolVersion() != Main.PROTOCOL_VERSION) {
+            session.sendPacketToServer(packet);
+        }
+        return true;
+    }
+
+    @Override
     public boolean handle(EntityEventPacket packet) {
         if (c2p.getPacketCodec().getProtocolVersion() != Main.PROTOCOL_VERSION) {
             session.sendPacketToServer(packet);
@@ -232,11 +249,14 @@ public class ServerPacketHandler implements BedrockPacketHandler {
         int protocol = packet.getProtocolVersion();
         log.info("{} logged in with protocol version {}", c2p.getAddress(), protocol);
         switch (protocol) {
-            case 361:
-                c2p.setPacketCodec(Bedrock_v361.V361_CODEC);
+            case 388:
+                c2p.setPacketCodec(Bedrock_v388.V388_CODEC);
                 c2p.sendPacket(PacketHelper.getPlayStatusPacket0());
                 c2p.sendPacket(PacketHelper.getResourcePacksInfoPacket());
                 return true;
+            case 361:
+                c2p.setPacketCodec(Bedrock_v361.V361_CODEC);
+                break;
             case 354:
                 c2p.setPacketCodec(Bedrock_v354.V354_CODEC);
                 break;
@@ -254,13 +274,14 @@ public class ServerPacketHandler implements BedrockPacketHandler {
                 break;
             default:
                 c2p.setPacketCodec(Main.CODEC);
-                PlayStatusPacket status = new PlayStatusPacket();
                 if (protocol > Main.PROTOCOL_VERSION) {
-                    status.setStatus(PlayStatusPacket.Status.FAILED_SERVER);
+                    c2p.sendPacket(PacketHelper.getPlayStatusPacket2());
                 } else {
-                    status.setStatus(PlayStatusPacket.Status.FAILED_CLIENT);
+                    c2p.sendPacket(PacketHelper.getPlayStatusPacket1());
+                    if (protocol < 137) {
+                        c2p.sendPacketImmediately(PacketHelper.createDisconnectPacket("disconnectionScreen.outdatedClient"));
+                    }
                 }
-                c2p.sendPacket(status);
                 return true;
         }
 
@@ -306,6 +327,25 @@ public class ServerPacketHandler implements BedrockPacketHandler {
             JWSObject clientJwt = JWSObject.parse(packet.getSkinData().toString());
             PacketHelper.verifyJwt(clientJwt, identityPublicKey);
             JSONObject skinData = clientJwt.getPayload().toJSONObject();
+
+            if (!skinData.containsKey("SkinResourcePatch")) {
+                if (String.valueOf(skinData.get("SkinId")).endsWith("Slim")) {
+                    skinData.put("SkinResourcePatch", PacketHelper.SKIN_RESOURCE_PATCH_SLIM);
+                } else {
+                    skinData.put("SkinResourcePatch", PacketHelper.SKIN_RESOURCE_PATCH);
+                }
+            }
+            if (!skinData.containsKey("CapeData")) {
+                skinData.put("CapeData", "");
+            }
+            if (skinData.getAsString("CapeData").trim().isEmpty()) {
+                if (!skinData.containsKey("CapeImageWidth") || ((Number) skinData.get("CapeImageWidth")).intValue() != 0) {
+                    skinData.put("CapeImageWidth", 0);
+                }
+                if (!skinData.containsKey("CapeImageHeight") || ((Number) skinData.get("CapeImageHeight")).intValue() != 0) {
+                    skinData.put("CapeImageHeight", 0);
+                }
+            }
 
             PlayerManager.newProxy(c2p).connect(Main.getInstance().getTargetAddress()).whenComplete((p2s, throwable) -> {
                 if (throwable != null) {
@@ -408,6 +448,14 @@ public class ServerPacketHandler implements BedrockPacketHandler {
     }
 
     @Override
+    public boolean handle(MultiplayerSettingsPacket packet) { //1.13+
+        if (c2p.getPacketCodec().getProtocolVersion() != Main.PROTOCOL_VERSION) {
+            session.sendPacketToServer(packet);
+        }
+        return true;
+    }
+
+    @Override
     public boolean handle(NetworkStackLatencyPacket packet) {
         if (c2p.getPacketCodec().getProtocolVersion() != Main.PROTOCOL_VERSION) {
             session.sendPacketToServer(packet);
@@ -425,6 +473,14 @@ public class ServerPacketHandler implements BedrockPacketHandler {
 
     @Override
     public boolean handle(PlayerActionPacket packet) {
+        if (c2p.getPacketCodec().getProtocolVersion() != Main.PROTOCOL_VERSION) {
+            session.sendPacketToServer(packet);
+        }
+        return true;
+    }
+
+    @Override
+    public boolean handle(PlayerAuthInputPacket packet) { //1.13+
         if (c2p.getPacketCodec().getProtocolVersion() != Main.PROTOCOL_VERSION) {
             session.sendPacketToServer(packet);
         }
@@ -465,7 +521,9 @@ public class ServerPacketHandler implements BedrockPacketHandler {
 
     @Override
     public boolean handle(RequestChunkRadiusPacket packet) {
-        if (c2p.getPacketCodec().getProtocolVersion() != Main.PROTOCOL_VERSION) {
+        if (c2p.getPacketCodec().getProtocolVersion() == Main.PROTOCOL_VERSION) {
+            c2p.sendPacket(PacketHelper.getPlayStatusPacket3());
+        } else {
             session.sendPacketToServer(packet);
         }
         return true;
@@ -488,10 +546,18 @@ public class ServerPacketHandler implements BedrockPacketHandler {
                     break;
                 case COMPLETED:
                     c2p.sendPacket(PacketHelper.getStartGamePacket());
-                    c2p.sendPacket(PacketHelper.getPlayStatusPacket3());
+                    c2p.sendPacket(PacketHelper.getBiomeDefinitionListPacket());
                     break;
             }
         } else {
+            session.sendPacketToServer(packet);
+        }
+        return true;
+    }
+
+    @Override
+    public boolean handle(RespawnPacket packet) { //c2s: 1.13+
+        if (c2p.getPacketCodec().getProtocolVersion() != Main.PROTOCOL_VERSION) {
             session.sendPacketToServer(packet);
         }
         return true;
@@ -558,6 +624,14 @@ public class ServerPacketHandler implements BedrockPacketHandler {
     }
 
     @Override
+    public boolean handle(SettingsCommandPacket packet) { //1.13+
+        if (c2p.getPacketCodec().getProtocolVersion() != Main.PROTOCOL_VERSION) {
+            session.sendPacketToServer(packet);
+        }
+        return true;
+    }
+
+    @Override
     public boolean handle(ShowCreditsPacket packet) {
         if (c2p.getPacketCodec().getProtocolVersion() != Main.PROTOCOL_VERSION) {
             session.sendPacketToServer(packet);
@@ -607,6 +681,14 @@ public class ServerPacketHandler implements BedrockPacketHandler {
 
     @Override
     public boolean handle(TextPacket packet) {
+        if (c2p.getPacketCodec().getProtocolVersion() != Main.PROTOCOL_VERSION) {
+            session.sendPacketToServer(packet);
+        }
+        return true;
+    }
+
+    @Override
+    public boolean handle(TickSyncPacket packet) { //1.13+
         if (c2p.getPacketCodec().getProtocolVersion() != Main.PROTOCOL_VERSION) {
             session.sendPacketToServer(packet);
         }

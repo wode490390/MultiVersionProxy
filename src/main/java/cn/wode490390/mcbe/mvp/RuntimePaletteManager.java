@@ -1,13 +1,11 @@
 package cn.wode490390.mcbe.mvp;
 
-import com.nukkitx.network.VarInts;
-import com.nukkitx.protocol.bedrock.packet.StartGamePacket.BlockPaletteEntry;
+import com.nukkitx.nbt.CompoundTagBuilder;
+import com.nukkitx.nbt.tag.CompoundTag;
+import com.nukkitx.nbt.tag.ListTag;
 import com.nukkitx.protocol.bedrock.packet.StartGamePacket.ItemEntry;
 import gnu.trove.map.TIntIntMap;
 import gnu.trove.map.hash.TIntIntHashMap;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.PooledByteBufAllocator;
-import io.netty.buffer.Unpooled;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -16,132 +14,154 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class RuntimePaletteManager {
 
+    private static final TIntIntMap legacyToRuntimeId_v388 = new TIntIntHashMap();
+    private static final TIntIntMap runtimeIdToLegacy_v388 = new TIntIntHashMap();
+    private static final AtomicInteger runtimeIdAllocator_v388 = new AtomicInteger(0);
+    private static final ListTag<CompoundTag> blockPalette_v388;
+
     private static final TIntIntMap legacyToRuntimeId_v361 = new TIntIntHashMap();
     private static final TIntIntMap runtimeIdToLegacy_v361 = new TIntIntHashMap();
     private static final AtomicInteger runtimeIdAllocator_v361 = new AtomicInteger(0);
-    private static final ByteBuf compiledBlockPalette_v361 = PooledByteBufAllocator.DEFAULT.directBuffer();
+    private static final ListTag<CompoundTag> blockPalette_v361;
 
     private static final TIntIntMap legacyToRuntimeId_v354 = new TIntIntHashMap();
     private static final TIntIntMap runtimeIdToLegacy_v354 = new TIntIntHashMap();
     private static final AtomicInteger runtimeIdAllocator_v354 = new AtomicInteger(0);
-    private static final ByteBuf compiledBlockPalette_v354 = PooledByteBufAllocator.DEFAULT.directBuffer();
+    private static final ListTag<CompoundTag> blockPalette_v354;
 
     private static final TIntIntMap legacyToRuntimeId_v340 = new TIntIntHashMap();
     private static final TIntIntMap runtimeIdToLegacy_v340 = new TIntIntHashMap();
     private static final AtomicInteger runtimeIdAllocator_v340 = new AtomicInteger(0);
-    private static final ByteBuf compiledBlockPalette_v340 = PooledByteBufAllocator.DEFAULT.directBuffer();
+    private static final ListTag<CompoundTag> blockPalette_v340;
 
     private static final TIntIntMap legacyToRuntimeId_v332 = new TIntIntHashMap();
     private static final TIntIntMap runtimeIdToLegacy_v332 = new TIntIntHashMap();
     private static final AtomicInteger runtimeIdAllocator_v332 = new AtomicInteger(0);
-    private static final ByteBuf compiledBlockPalette_v332 = PooledByteBufAllocator.DEFAULT.directBuffer();
+    private static final ListTag<CompoundTag> blockPalette_v332;
 
     private static final TIntIntMap legacyToRuntimeId_v313 = new TIntIntHashMap();
     private static final TIntIntMap runtimeIdToLegacy_v313 = new TIntIntHashMap();
     private static final AtomicInteger runtimeIdAllocator_v313 = new AtomicInteger(0);
-    private static final ByteBuf compiledBlockPalette_v313 = PooledByteBufAllocator.DEFAULT.directBuffer();
+    private static final ListTag<CompoundTag> blockPalette_v313;
 
     private static final TIntIntMap legacyToRuntimeId_v291 = new TIntIntHashMap();
     private static final TIntIntMap runtimeIdToLegacy_v291 = new TIntIntHashMap();
     private static final AtomicInteger runtimeIdAllocator_v291 = new AtomicInteger(0);
-    private static final ByteBuf compiledBlockPalette_v291 = PooledByteBufAllocator.DEFAULT.directBuffer();
+    private static final ListTag<CompoundTag> blockPalette_v291;
 
+    private static final List<ItemEntry> itemPalette_v388 = new ArrayList<>();
     private static final List<ItemEntry> itemPalette_v361 = new ArrayList<>();
 
     static {
-        List<BlockPaletteEntry> blockPalette_v361 = new ArrayList<>();
-        ByteBuf compiler_v361 = Unpooled.buffer();
+        blockPalette_v388 = (ListTag<CompoundTag>) DedicatedData.loadNbt("blocks_v388.nbt");
+        blockPalette_v388.getValue().forEach(entry -> {
+            int runtimeId = runtimeIdAllocator_v388.getAndIncrement();
+            if (entry.contains("meta")) {
+                short id = entry.getAsShort("id");
+                int[] meta = entry.getAsIntArray("meta");
+                runtimeIdToLegacy_v388.put(runtimeId, getLegacyIdExpanded(id, meta[0]));
+                for (int value : meta) {
+                    legacyToRuntimeId_v388.put(getLegacyIdExpanded(id, value), runtimeId);
+                }
+            }
+        });
+
+        List<CompoundTag> blocks_v361 = new ArrayList<>();
         ((List<Map<String, Object>>) DedicatedData.loadArray("blocks_v361.json")).forEach(entry -> {
             short id = ((Number) entry.get("id")).shortValue();
             short meta = ((Number) entry.get("data")).shortValue();
             registerMapping_v361(id, meta);
-            String identifier = String.valueOf(entry.get("name"));
-            com.nukkitx.protocol.bedrock.v361.BedrockUtils.writeString(compiler_v361, identifier);
-            compiler_v361.writeShortLE(meta);
-            blockPalette_v361.add(new BlockPaletteEntry(identifier, meta, id));
+            blocks_v361.add(CompoundTagBuilder.builder()
+                    .tag(CompoundTagBuilder.builder()
+                            .stringTag("name", String.valueOf(entry.get("name")))
+                            .build("block"))
+                    .shortTag("id", id)
+                    .shortTag("meta", meta)
+                    .buildRootTag());
         });
-        VarInts.writeUnsignedInt(compiledBlockPalette_v361, blockPalette_v361.size());
-        compiledBlockPalette_v361.writeBytes(compiler_v361);
-        compiler_v361.release();
+        blockPalette_v361 = new ListTag<>("Palette", CompoundTag.class, blocks_v361);
 
-        List<BlockPaletteEntry> blockPalette_v354 = new ArrayList<>();
-        ByteBuf compiler_v354 = Unpooled.buffer();
+        List<CompoundTag> blocks_v354 = new ArrayList<>();
         ((List<Map<String, Object>>) DedicatedData.loadArray("blocks_v354.json")).forEach(entry -> {
             short id = ((Number) entry.get("id")).shortValue();
             short meta = ((Number) entry.get("data")).shortValue();
             registerMapping_v354(id, meta);
-            String identifier = String.valueOf(entry.get("name"));
-            com.nukkitx.protocol.bedrock.v354.BedrockUtils.writeString(compiler_v354, identifier);
-            compiler_v354.writeShortLE(meta);
-            blockPalette_v354.add(new BlockPaletteEntry(identifier, meta, id));
+            blocks_v354.add(CompoundTagBuilder.builder()
+                    .tag(CompoundTagBuilder.builder()
+                            .stringTag("name", String.valueOf(entry.get("name")))
+                            .build("block"))
+                    .shortTag("meta", meta)
+                    .buildRootTag());
         });
-        VarInts.writeUnsignedInt(compiledBlockPalette_v354, blockPalette_v354.size());
-        compiledBlockPalette_v354.writeBytes(compiler_v354);
-        compiler_v354.release();
+        blockPalette_v354 = new ListTag<>("Palette", CompoundTag.class, blocks_v354);
 
-        List<BlockPaletteEntry> blockPalette_v340 = new ArrayList<>();
-        ByteBuf compiler_v340 = Unpooled.buffer();
+        List<CompoundTag> blocks_v340 = new ArrayList<>();
         ((List<Map<String, Object>>) DedicatedData.loadArray("blocks_v340.json")).forEach(entry -> {
             short id = ((Number) entry.get("id")).shortValue();
             short meta = ((Number) entry.get("data")).shortValue();
             registerMapping_v340(id, meta);
-            String identifier = String.valueOf(entry.get("name"));
-            com.nukkitx.protocol.bedrock.v340.BedrockUtils.writeString(compiler_v340, identifier);
-            compiler_v340.writeShortLE(meta);
-            blockPalette_v340.add(new BlockPaletteEntry(identifier, meta, id));
+            blocks_v340.add(CompoundTagBuilder.builder()
+                    .tag(CompoundTagBuilder.builder()
+                            .stringTag("name", String.valueOf(entry.get("name")))
+                            .build("block"))
+                    .shortTag("meta", meta)
+                    .buildRootTag());
         });
-        VarInts.writeUnsignedInt(compiledBlockPalette_v340, blockPalette_v340.size());
-        compiledBlockPalette_v340.writeBytes(compiler_v340);
-        compiler_v340.release();
+        blockPalette_v340 = new ListTag<>("Palette", CompoundTag.class, blocks_v340);
 
-        List<BlockPaletteEntry> blockPalette_v332 = new ArrayList<>();
-        ByteBuf compiler_v332 = Unpooled.buffer();
+        List<CompoundTag> blocks_v332 = new ArrayList<>();
         ((List<Map<String, Object>>) DedicatedData.loadArray("blocks_v332.json")).forEach(entry -> {
             short id = ((Number) entry.get("id")).shortValue();
             short meta = ((Number) entry.get("data")).shortValue();
             registerMapping_v332(id, meta);
-            String identifier = String.valueOf(entry.get("name"));
-            com.nukkitx.protocol.bedrock.v332.BedrockUtils.writeString(compiler_v332, identifier);
-            compiler_v332.writeShortLE(meta);
-            blockPalette_v332.add(new BlockPaletteEntry(identifier, meta, id));
+            blocks_v332.add(CompoundTagBuilder.builder()
+                    .tag(CompoundTagBuilder.builder()
+                            .stringTag("name", String.valueOf(entry.get("name")))
+                            .build("block"))
+                    .shortTag("meta", meta)
+                    .buildRootTag());
         });
-        VarInts.writeUnsignedInt(compiledBlockPalette_v332, blockPalette_v332.size());
-        compiledBlockPalette_v332.writeBytes(compiler_v332);
-        compiler_v332.release();
+        blockPalette_v332 = new ListTag<>("Palette", CompoundTag.class, blocks_v332);
 
-        List<BlockPaletteEntry> blockPalette_v313 = new ArrayList<>();
-        ByteBuf compiler_v313 = Unpooled.buffer();
+        List<CompoundTag> blocks_v313 = new ArrayList<>();
         ((List<Map<String, Object>>) DedicatedData.loadArray("blocks_v313.json")).forEach(entry -> {
             short id = ((Number) entry.get("id")).shortValue();
             short meta = ((Number) entry.get("data")).shortValue();
             registerMapping_v313(id, meta);
-            String identifier = String.valueOf(entry.get("name"));
-            com.nukkitx.protocol.bedrock.v313.BedrockUtils.writeString(compiler_v313, identifier);
-            compiler_v313.writeShortLE(meta);
-            blockPalette_v313.add(new BlockPaletteEntry(identifier, meta, id));
+            blocks_v313.add(CompoundTagBuilder.builder()
+                    .tag(CompoundTagBuilder.builder()
+                            .stringTag("name", String.valueOf(entry.get("name")))
+                            .build("block"))
+                    .shortTag("meta", meta)
+                    .buildRootTag());
         });
-        VarInts.writeUnsignedInt(compiledBlockPalette_v313, blockPalette_v313.size());
-        compiledBlockPalette_v313.writeBytes(compiler_v313);
-        compiler_v313.release();
+        blockPalette_v313 = new ListTag<>("Palette", CompoundTag.class, blocks_v313);
 
-        List<BlockPaletteEntry> blockPalette_v291 = new ArrayList<>();
-        ByteBuf compiler_v291 = Unpooled.buffer();
+        List<CompoundTag> blocks_v291 = new ArrayList<>();
         ((List<Map<String, Object>>) DedicatedData.loadArray("blocks_v282.json")).forEach(entry -> { //1.6-1.7
             short id = ((Number) entry.get("id")).shortValue();
             short meta = ((Number) entry.get("data")).shortValue();
             registerMapping_v291(id, meta);
-            String identifier = String.valueOf(entry.get("name"));
-            com.nukkitx.protocol.bedrock.v291.BedrockUtils.writeString(compiler_v291, identifier);
-            compiler_v291.writeShortLE(meta);
-            blockPalette_v291.add(new BlockPaletteEntry(identifier, meta, id));
+            blocks_v291.add(CompoundTagBuilder.builder()
+                    .tag(CompoundTagBuilder.builder()
+                            .stringTag("name", String.valueOf(entry.get("name")))
+                            .build("block"))
+                    .shortTag("meta", meta)
+                    .buildRootTag());
         });
-        VarInts.writeUnsignedInt(compiledBlockPalette_v291, blockPalette_v291.size());
-        compiledBlockPalette_v291.writeBytes(compiler_v291);
-        compiler_v291.release();
+        blockPalette_v291 = new ListTag<>("Palette", CompoundTag.class, blocks_v291);
+
+        ((List<Map<String, Object>>) DedicatedData.loadArray("items_v388.json")).forEach(entry -> {
+            itemPalette_v388.add(new ItemEntry(String.valueOf(entry.get("name")), ((Number) entry.get("id")).shortValue()));
+        });
 
         ((List<Map<String, Object>>) DedicatedData.loadArray("items_v361.json")).forEach(entry -> {
             itemPalette_v361.add(new ItemEntry(String.valueOf(entry.get("name")), ((Number) entry.get("id")).shortValue()));
         });
+    }
+
+    public static int getLegacyId_v388(int runtimeId) {
+        return runtimeIdToLegacy_v388.get(runtimeId);
     }
 
     public static int getLegacyId_v361(int runtimeId) {
@@ -168,6 +188,10 @@ public class RuntimePaletteManager {
         return runtimeIdToLegacy_v291.get(runtimeId);
     }
 
+    public static int getRuntimeId_v388(int blockId, int blockMeta) {
+        return getRuntimeId_v388(getLegacyIdExpanded(blockId, blockMeta));
+    }
+
     public static int getRuntimeId_v361(int blockId, int blockMeta) {
         return getRuntimeId_v361(getLegacyId(blockId, blockMeta));
     }
@@ -190,6 +214,13 @@ public class RuntimePaletteManager {
 
     public static int getRuntimeId_v291(int blockId, int blockMeta) {
         return getRuntimeId_v291(getLegacyId(blockId, blockMeta));
+    }
+
+    public static int getRuntimeId_v388(int legacyId) throws NoSuchElementException {
+        //if (legacyToRuntimeId_v388.containsKey(legacyId)) {
+            return legacyToRuntimeId_v388.get(legacyId);
+        //}
+        //throw new NoSuchElementException("Unmapped v388 block registered id: " + getBlockId(legacyId) + " meta: " + getBlockMeta(legacyId));
     }
 
     public static int getRuntimeId_v361(int legacyId) throws NoSuchElementException {
@@ -282,46 +313,65 @@ public class RuntimePaletteManager {
         return runtimeId;
     }
 
-    public static ByteBuf getBlockPalette_v361() {
-        compiledBlockPalette_v361.retain();
-        return compiledBlockPalette_v361;
+    public static ListTag<CompoundTag> getBlockPalette_v388() {
+        return blockPalette_v388;
     }
 
-    public static ByteBuf getBlockPalette_v354() {
-        compiledBlockPalette_v354.retain();
-        return compiledBlockPalette_v354;
+    public static ListTag<CompoundTag> getBlockPalette_v361() {
+        return blockPalette_v361;
     }
 
-    public static ByteBuf getBlockPalette_v340() {
-        compiledBlockPalette_v340.retain();
-        return compiledBlockPalette_v340;
+    public static ListTag<CompoundTag> getBlockPalette_v354() {
+        return blockPalette_v354;
     }
 
-    public static ByteBuf getBlockPalette_v332() {
-        compiledBlockPalette_v332.retain();
-        return compiledBlockPalette_v332;
+    public static ListTag<CompoundTag> getBlockPalette_v340() {
+        return blockPalette_v340;
     }
 
-    public static ByteBuf getBlockPalette_v313() {
-        compiledBlockPalette_v313.retain();
-        return compiledBlockPalette_v313;
+    public static ListTag<CompoundTag> getBlockPalette_v332() {
+        return blockPalette_v332;
     }
 
-    public static ByteBuf getBlockPalette_v291() {
-        compiledBlockPalette_v291.retain();
-        return compiledBlockPalette_v291;
+    public static ListTag<CompoundTag> getBlockPalette_v313() {
+        return blockPalette_v313;
+    }
+
+    public static ListTag<CompoundTag> getBlockPalette_v291() {
+        return blockPalette_v291;
     }
 
     public static int getLegacyId(int blockId, int blockMeta) {
         return (blockId << 4) | blockMeta;
     }
 
+    public static int getLegacyIdExpanded(int blockId, int blockMeta) {
+        return (blockId << 6) | blockMeta;
+    }
+
+    public static int convertToLegacy(int expanded) {
+        int meta = getBlockMetaExpanded(expanded);
+        return getLegacyId(getBlockIdExpanded(expanded), meta > 0xf ? 0 : meta);
+    }
+
     public static int getBlockId(int legacyId) {
         return legacyId >> 4;
     }
 
+    public static int getBlockIdExpanded(int legacyId) {
+        return legacyId >> 6;
+    }
+
     public static int getBlockMeta(int legacyId) {
         return legacyId & 0xf;
+    }
+
+    public static int getBlockMetaExpanded(int legacyId) {
+        return legacyId & 0x7f;
+    }
+
+    public static List<ItemEntry> getItemPalette_v388() {
+        return itemPalette_v388;
     }
 
     public static List<ItemEntry> getItemPalette_v361() {
@@ -329,6 +379,6 @@ public class RuntimePaletteManager {
     }
 
     public static void init() {
-        //nothing
+        //NOOP
     }
 }

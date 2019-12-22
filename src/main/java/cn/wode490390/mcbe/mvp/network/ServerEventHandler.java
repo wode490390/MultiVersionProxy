@@ -15,7 +15,7 @@ public class ServerEventHandler implements BedrockServerEventHandler {
     static {
         ADVERTISEMENT.setEdition("MCPE");
         ADVERTISEMENT.setGameType("Survival");
-        ADVERTISEMENT.setVersion("1.7.0.1.12.0"); //Main.MINECRAFT_VERSION
+        ADVERTISEMENT.setVersion(Main.MINECRAFT_VERSION);
         ADVERTISEMENT.setProtocolVersion(Main.PROTOCOL_VERSION);
         ADVERTISEMENT.setMotd(Main.getInstance().getConfig().getMotd());
         ADVERTISEMENT.setMaximumPlayerCount(Main.getInstance().getConfig().getMaxPlayer());

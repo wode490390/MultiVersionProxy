@@ -10,6 +10,6 @@ public class Debuger {
     }
 
     public static void init() {
-        //nothing
+        //NOOP
     }
 }

@@ -30,20 +30,20 @@ public class ConsoleCompleter implements Completer {
             addCandidates(names::add);
             names.stream()
                     .filter(match -> !(!match.toLowerCase().startsWith(parsedLine.word())))
-                    .forEach(match -> candidates.add(new Candidate(match)));
+                    .forEachOrdered(match -> candidates.add(new Candidate(match)));
         } else if (parsedLine.wordIndex() > 0 && !parsedLine.word().isEmpty()) {
             String word = parsedLine.word();
             SortedSet<String> names = new TreeSet<>();
             PlayerManager.getPlayers().forEach((session, client) -> names.add(session.getAddress().toString()));
             names.stream()
                     .filter(match -> !(!match.toLowerCase().startsWith(word.toLowerCase())))
-                    .forEach(match -> candidates.add(new Candidate(match)));
+                    .forEachOrdered(match -> candidates.add(new Candidate(match)));
         }
     }
 
     private void addCandidates(Consumer<String> commandConsumer) {
         main.getCommandManager().getCommandMap().keySet().stream()
                 .filter(command -> !command.contains(":"))
-                .forEach(command -> commandConsumer.accept(command));
+                .forEachOrdered(command -> commandConsumer.accept(command));
     }
 }

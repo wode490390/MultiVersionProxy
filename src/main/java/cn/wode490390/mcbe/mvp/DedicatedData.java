@@ -1,5 +1,8 @@
 package cn.wode490390.mcbe.mvp;
 
+import com.nukkitx.nbt.NbtUtils;
+import com.nukkitx.nbt.stream.NBTInputStream;
+import com.nukkitx.nbt.tag.Tag;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,5 +40,14 @@ public class DedicatedData {
             log.error("Unable to load " + file, e);
         }
         return new ArrayList<>();
+    }
+
+    public static Tag<?> loadNbt(String file) {
+        try (NBTInputStream reader = NbtUtils.createNetworkReader(load(file))) {
+            return reader.readTag();
+        } catch (IOException e) {
+            log.error("Unable to load " + file);
+            throw new RuntimeException(e);
+        }
     }
 }
