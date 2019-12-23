@@ -9,7 +9,7 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.nukkitx.protocol.bedrock.BedrockPacketCodec;
 import com.nukkitx.protocol.bedrock.BedrockServer;
-import com.nukkitx.protocol.bedrock.v388.Bedrock_v388;
+import com.nukkitx.protocol.bedrock.v389.Bedrock_v389;
 import io.netty.util.ResourceLeakDetector;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.netty.util.internal.logging.Log4J2LoggerFactory;
@@ -35,7 +35,7 @@ import org.apache.logging.log4j.core.config.LoggerConfig;
 @Log4j2
 public class Main {
 
-    public static final BedrockPacketCodec CODEC = Bedrock_v388.V388_CODEC;
+    public static final BedrockPacketCodec CODEC = Bedrock_v389.V389_CODEC;
     public static final int PROTOCOL_VERSION = CODEC.getProtocolVersion();
     public static final String MINECRAFT_VERSION = CODEC.getMinecraftVersion();
 
@@ -144,7 +144,8 @@ public class Main {
         targetAddress = config.getDestination().getAddress();
         InetSocketAddress bindingAddress = config.getProxy().getAddress();
 
-        log.info("Loading server...");
+        log.info("Starting Minecraft: Bedrock Edition proxy version 1.7.0-{} (target protocol version {})", CODEC.getMinecraftVersion(), CODEC.getProtocolVersion());
+
         commandManager = new ConsoleCommandManager(this);
 
         RuntimePaletteManager.init();
@@ -155,6 +156,7 @@ public class Main {
         server = new BedrockServer(bindingAddress);
         server.setHandler(new ServerEventHandler());
         server.bind().join();
+
         log.info("Proxy server started on {}", bindingAddress);
 
         int level = config.getLogLevel();

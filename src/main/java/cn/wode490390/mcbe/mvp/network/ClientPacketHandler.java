@@ -23,6 +23,7 @@ import com.nukkitx.protocol.bedrock.v340.Bedrock_v340;
 import com.nukkitx.protocol.bedrock.v354.Bedrock_v354;
 import com.nukkitx.protocol.bedrock.v361.Bedrock_v361;
 import com.nukkitx.protocol.bedrock.v388.Bedrock_v388;
+import com.nukkitx.protocol.bedrock.v389.Bedrock_v389;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.ByteBufOutputStream;
@@ -115,10 +116,15 @@ public class ClientPacketHandler implements BedrockPacketHandler {
     @Override
     public boolean handle(AvailableEntityIdentifiersPacket packet) {
         switch (session.getProtocol()) {
+            case 389:
+                packet.setTag(PacketHelper.ENTITY_IDENTIFIERS_V389);
+                break;
+            case 388:
+                packet.setTag(PacketHelper.ENTITY_IDENTIFIERS_V388);
+                break;
             case 361:
-                session.sendPacketToClient(packet);
-                //packet.setTag(PacketHelper.ENTITY_IDENTIFIERS_V361);
-                return true;
+                packet.setTag(PacketHelper.ENTITY_IDENTIFIERS_V361);
+                break;
             case 354:
                 packet.setTag(PacketHelper.ENTITY_IDENTIFIERS_V354);
                 break;
@@ -141,11 +147,25 @@ public class ClientPacketHandler implements BedrockPacketHandler {
     @Override
     public boolean handle(BiomeDefinitionListPacket packet) { //1.8+
         if (session.getProtocol() >= Bedrock_v313.V313_CODEC.getProtocolVersion()) {
+            switch (session.getProtocol()) {
+                case 389:
+                case 388:
+                    packet.setTag(PacketHelper.BIOME_DEFINITION_LIST_V388);
+                    break;
+                case 361:
+                case 354:
+                case 340:
+                    packet.setTag(PacketHelper.BIOME_DEFINITION_LIST_V340);
+                    break;
+                case 332:
+                case 313:
+                //packet.setTag(PacketHelper.ENTITY_IDENTIFIERS_V313);
+                //break;
+                default:
+                    return true;
+            }
             session.sendPacketToClient(packet);
-        }/* else if (false) {
-            packet.setTag(PacketHelper.BIOME_DEFINITION_LIST_V340);
-            session.sendPacketToClient(packet);
-        }*/
+        }
         return true;
     }
 
@@ -244,6 +264,11 @@ public class ClientPacketHandler implements BedrockPacketHandler {
         potionData.clear();
         containerData.clear();
         switch (session.getProtocol()) {
+            case 389:
+                craftingData.addAll(InventoryManager.getRecipes_v389());
+                potionData.addAll(InventoryManager.getPotions_v389());
+                containerData.addAll(InventoryManager.getContainers_v389());
+                break;
             case 388:
                 craftingData.addAll(InventoryManager.getRecipes_v388());
                 potionData.addAll(InventoryManager.getPotions_v388());
@@ -337,6 +362,9 @@ public class ClientPacketHandler implements BedrockPacketHandler {
     public boolean handle(InventoryContentPacket packet) { //TODO: item
         if (packet.getContainerId() == ContainerId.CREATIVE) {
             switch (session.getProtocol()) {
+                case 389:
+                    packet.setContents(InventoryManager.getCreative_v389());
+                    break;
                 case 388:
                     packet.setContents(InventoryManager.getCreative_v388());
                     break;
@@ -605,9 +633,9 @@ public class ClientPacketHandler implements BedrockPacketHandler {
 
     @Override
     public boolean handle(NetworkSettingsPacket packet) { //1.13+
-        if (session.getProtocol() >= Bedrock_v388.V388_CODEC.getProtocolVersion()) {
-            session.sendPacketToClient(packet);
-        }
+        //if (session.getProtocol() >= Bedrock_v388.V388_CODEC.getProtocolVersion()) {
+        //    session.sendPacketToClient(packet);
+        //}
         return true;
     }
 
@@ -698,6 +726,8 @@ public class ClientPacketHandler implements BedrockPacketHandler {
         session.sendPacketToClient(packet);
         if (session.getProtocol() < Bedrock_v361.V361_CODEC.getProtocolVersion()) {
             p2s.sendPacket(PacketHelper.getClientCacheStatusPacket0());
+        } else if (session.getProtocol() >= Bedrock_v388.V388_CODEC.getProtocolVersion()) {
+            session.sendPacketToClient(PacketHelper.getNetworkSettingsPacket1());
         }
         return true;
     }
@@ -875,9 +905,14 @@ public class ClientPacketHandler implements BedrockPacketHandler {
     @Override
     public boolean handle(StartGamePacket packet) {
         switch (session.getProtocol()) {
+            case 389:
+                //packet.setItemEntries(RuntimePaletteManager.getItemPalette_v389());
+                //packet.setBlockPalette(RuntimePaletteManager.getBlockPalette_v389());
+                break;
             case 388:
-                session.sendPacketToClient(packet);
-                return true;
+                packet.setItemEntries(RuntimePaletteManager.getItemPalette_v388());
+                packet.setBlockPalette(RuntimePaletteManager.getBlockPalette_v388());
+                break;
             case 361:
                 packet.setItemEntries(RuntimePaletteManager.getItemPalette_v361());
                 packet.setBlockPalette(RuntimePaletteManager.getBlockPalette_v361());
@@ -956,26 +991,29 @@ public class ClientPacketHandler implements BedrockPacketHandler {
     @Override
     public boolean handle(UpdateBlockPacket packet) {
         switch (session.getProtocol()) {
+            case 389:
+                //packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v389(RuntimePaletteManager.getLegacyId_v389(packet.getRuntimeId())));
+                break;
             case 388:
-                //packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v388(RuntimePaletteManager.getLegacyId_v388(packet.getRuntimeId())));
+                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v388(RuntimePaletteManager.getLegacyId_v389(packet.getRuntimeId())));
                 break;
             case 361:
-                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v361(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v388(packet.getRuntimeId()))));
+                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v361(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v389(packet.getRuntimeId()))));
                 break;
             case 354:
-                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v354(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v388(packet.getRuntimeId()))));
+                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v354(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v389(packet.getRuntimeId()))));
                 break;
             case 340:
-                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v340(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v388(packet.getRuntimeId()))));
+                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v340(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v389(packet.getRuntimeId()))));
                 break;
             case 332:
-                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v332(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v388(packet.getRuntimeId()))));
+                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v332(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v389(packet.getRuntimeId()))));
                 break;
             case 313:
-                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v313(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v388(packet.getRuntimeId()))));
+                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v313(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v389(packet.getRuntimeId()))));
                 break;
             case 291:
-                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v291(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v388(packet.getRuntimeId()))));
+                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v291(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v389(packet.getRuntimeId()))));
                 break;
             default:
                 return true;
@@ -995,26 +1033,29 @@ public class ClientPacketHandler implements BedrockPacketHandler {
     @Override
     public boolean handle(UpdateBlockSyncedPacket packet) {
         switch (session.getProtocol()) {
+            case 389:
+                //packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v389(RuntimePaletteManager.getLegacyId_v389(packet.getRuntimeId())));
+                break;
             case 388:
-                //packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v388(RuntimePaletteManager.getLegacyId_v388(packet.getRuntimeId())));
+                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v388(RuntimePaletteManager.getLegacyId_v389(packet.getRuntimeId())));
                 break;
             case 361:
-                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v361(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v388(packet.getRuntimeId()))));
+                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v361(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v389(packet.getRuntimeId()))));
                 break;
             case 354:
-                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v354(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v388(packet.getRuntimeId()))));
+                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v354(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v389(packet.getRuntimeId()))));
                 break;
             case 340:
-                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v340(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v388(packet.getRuntimeId()))));
+                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v340(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v389(packet.getRuntimeId()))));
                 break;
             case 332:
-                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v332(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v388(packet.getRuntimeId()))));
+                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v332(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v389(packet.getRuntimeId()))));
                 break;
             case 313:
-                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v313(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v388(packet.getRuntimeId()))));
+                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v313(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v389(packet.getRuntimeId()))));
                 break;
             case 291:
-                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v291(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v388(packet.getRuntimeId()))));
+                packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v291(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v389(packet.getRuntimeId()))));
                 break;
             default:
                 return true;

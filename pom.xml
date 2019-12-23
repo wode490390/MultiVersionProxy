@@ -7,7 +7,7 @@
     <groupId>cn.wode490390.mcbe</groupId>
     <artifactId>multiversionproxy</artifactId>
     <packaging>jar</packaging>
-    <version>1.1.0</version>
+    <version>1.2.0</version>
     <name>MultiVersionProxy</name>
     <description>Multi-version proxy for Minecraft: Bedrock Edition</description>
     <url>http://wode490390.cn/</url>
@@ -52,7 +52,7 @@
         <log4j.version>2.13.0</log4j.version>
         <jline.version>3.13.2</jline.version>
         <jackson.version>2.10.1</jackson.version>
-        <protocol.version>2.4.3</protocol.version>
+        <protocol.version>2.4.4</protocol.version>
     </properties>
 
     <repositories>
@@ -73,6 +73,12 @@
     </repositories>
 
     <dependencies>
+        <dependency>
+            <groupId>com.nukkitx.protocol</groupId>
+            <artifactId>bedrock-v389</artifactId><!-- 1.14 -->
+            <version>${protocol.version}</version>
+            <scope>compile</scope>
+        </dependency>
         <dependency>
             <groupId>com.nukkitx.protocol</groupId>
             <artifactId>bedrock-v388</artifactId><!-- 1.13 -->

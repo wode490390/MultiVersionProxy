@@ -19,6 +19,7 @@ import com.nukkitx.protocol.bedrock.v340.Bedrock_v340;
 import com.nukkitx.protocol.bedrock.v354.Bedrock_v354;
 import com.nukkitx.protocol.bedrock.v361.Bedrock_v361;
 import com.nukkitx.protocol.bedrock.v388.Bedrock_v388;
+import com.nukkitx.protocol.bedrock.v389.Bedrock_v389;
 import io.netty.util.AsciiString;
 import java.io.IOException;
 import java.security.interfaces.ECPublicKey;
@@ -249,11 +250,14 @@ public class ServerPacketHandler implements BedrockPacketHandler {
         int protocol = packet.getProtocolVersion();
         log.info("{} logged in with protocol version {}", c2p.getAddress(), protocol);
         switch (protocol) {
-            case 388:
-                c2p.setPacketCodec(Bedrock_v388.V388_CODEC);
+            case 389:
+                c2p.setPacketCodec(Bedrock_v389.V389_CODEC);
                 c2p.sendPacket(PacketHelper.getPlayStatusPacket0());
                 c2p.sendPacket(PacketHelper.getResourcePacksInfoPacket());
                 return true;
+            case 388:
+                c2p.setPacketCodec(Bedrock_v388.V388_CODEC);
+                break;
             case 361:
                 c2p.setPacketCodec(Bedrock_v361.V361_CODEC);
                 break;

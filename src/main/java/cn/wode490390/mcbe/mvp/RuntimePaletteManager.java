@@ -14,6 +14,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class RuntimePaletteManager {
 
+    private static final TIntIntMap legacyToRuntimeId_v389 = new TIntIntHashMap();
+    private static final TIntIntMap runtimeIdToLegacy_v389 = new TIntIntHashMap();
+    private static final AtomicInteger runtimeIdAllocator_v389 = new AtomicInteger(0);
+    private static final ListTag<CompoundTag> blockPalette_v389;
+
     private static final TIntIntMap legacyToRuntimeId_v388 = new TIntIntHashMap();
     private static final TIntIntMap runtimeIdToLegacy_v388 = new TIntIntHashMap();
     private static final AtomicInteger runtimeIdAllocator_v388 = new AtomicInteger(0);
@@ -49,10 +54,24 @@ public class RuntimePaletteManager {
     private static final AtomicInteger runtimeIdAllocator_v291 = new AtomicInteger(0);
     private static final ListTag<CompoundTag> blockPalette_v291;
 
+    private static final List<ItemEntry> itemPalette_v389 = new ArrayList<>();
     private static final List<ItemEntry> itemPalette_v388 = new ArrayList<>();
     private static final List<ItemEntry> itemPalette_v361 = new ArrayList<>();
 
     static {
+        blockPalette_v389 = (ListTag<CompoundTag>) DedicatedData.loadNbt("blocks_v389.nbt");
+        blockPalette_v389.getValue().forEach(entry -> {
+            int runtimeId = runtimeIdAllocator_v389.getAndIncrement();
+            if (entry.contains("meta")) {
+                short id = entry.getAsShort("id");
+                int[] meta = entry.getAsIntArray("meta");
+                runtimeIdToLegacy_v389.put(runtimeId, getLegacyIdExpanded(id, meta[0]));
+                for (int value : meta) {
+                    legacyToRuntimeId_v389.put(getLegacyIdExpanded(id, value), runtimeId);
+                }
+            }
+        });
+
         blockPalette_v388 = (ListTag<CompoundTag>) DedicatedData.loadNbt("blocks_v388.nbt");
         blockPalette_v388.getValue().forEach(entry -> {
             int runtimeId = runtimeIdAllocator_v388.getAndIncrement();
@@ -151,6 +170,10 @@ public class RuntimePaletteManager {
         });
         blockPalette_v291 = new ListTag<>("Palette", CompoundTag.class, blocks_v291);
 
+        ((List<Map<String, Object>>) DedicatedData.loadArray("items_v389.json")).forEach(entry -> {
+            itemPalette_v389.add(new ItemEntry(String.valueOf(entry.get("name")), ((Number) entry.get("id")).shortValue()));
+        });
+
         ((List<Map<String, Object>>) DedicatedData.loadArray("items_v388.json")).forEach(entry -> {
             itemPalette_v388.add(new ItemEntry(String.valueOf(entry.get("name")), ((Number) entry.get("id")).shortValue()));
         });
@@ -158,6 +181,10 @@ public class RuntimePaletteManager {
         ((List<Map<String, Object>>) DedicatedData.loadArray("items_v361.json")).forEach(entry -> {
             itemPalette_v361.add(new ItemEntry(String.valueOf(entry.get("name")), ((Number) entry.get("id")).shortValue()));
         });
+    }
+
+    public static int getLegacyId_v389(int runtimeId) {
+        return runtimeIdToLegacy_v389.get(runtimeId);
     }
 
     public static int getLegacyId_v388(int runtimeId) {
@@ -188,6 +215,10 @@ public class RuntimePaletteManager {
         return runtimeIdToLegacy_v291.get(runtimeId);
     }
 
+    public static int getRuntimeId_v389(int blockId, int blockMeta) {
+        return getRuntimeId_v389(getLegacyIdExpanded(blockId, blockMeta));
+    }
+
     public static int getRuntimeId_v388(int blockId, int blockMeta) {
         return getRuntimeId_v388(getLegacyIdExpanded(blockId, blockMeta));
     }
@@ -214,6 +245,13 @@ public class RuntimePaletteManager {
 
     public static int getRuntimeId_v291(int blockId, int blockMeta) {
         return getRuntimeId_v291(getLegacyId(blockId, blockMeta));
+    }
+
+    public static int getRuntimeId_v389(int legacyId) throws NoSuchElementException {
+        //if (legacyToRuntimeId_v389.containsKey(legacyId)) {
+            return legacyToRuntimeId_v389.get(legacyId);
+        //}
+        //throw new NoSuchElementException("Unmapped v389 block registered id: " + getBlockId(legacyId) + " meta: " + getBlockMeta(legacyId));
     }
 
     public static int getRuntimeId_v388(int legacyId) throws NoSuchElementException {
@@ -311,6 +349,10 @@ public class RuntimePaletteManager {
         runtimeIdToLegacy_v291.put(runtimeId, legacyId);
         legacyToRuntimeId_v291.put(legacyId, runtimeId);
         return runtimeId;
+    }
+
+    public static ListTag<CompoundTag> getBlockPalette_v389() {
+        return blockPalette_v389;
     }
 
     public static ListTag<CompoundTag> getBlockPalette_v388() {
