@@ -17,5 +17,5 @@ log-level: 1
 motd: Multi-version Proxy
 sub-motd: wodeMVP
 max-player: 20
-online-mode: false
+online-mode: true
 whitelist: false

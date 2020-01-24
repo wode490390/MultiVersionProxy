@@ -7,9 +7,9 @@
     <groupId>cn.wode490390.mcbe</groupId>
     <artifactId>multiversionproxy</artifactId>
     <packaging>jar</packaging>
-    <version>1.2.0</version>
+    <version>1.2.0-CE</version>
     <name>MultiVersionProxy</name>
-    <description>Multi-version proxy for Minecraft: Bedrock Edition</description>
+    <description>Multi-version proxy for Minecraft: Netease Edition</description>
     <url>http://wode490390.cn/</url>
     <inceptionYear>2019</inceptionYear>
 
@@ -210,6 +210,12 @@
             <artifactId>jline-reader</artifactId>
             <version>${jline.version}</version>
             <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.netease.mc</groupId>
+            <artifactId>authlib</artifactId>
+            <version>1.0</version>
+            <scope>compile</scope> <!-- 请先将NetEase提供的authlib安装到本地 -->
         </dependency>
     </dependencies>
 

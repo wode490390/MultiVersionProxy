@@ -3,6 +3,8 @@ package cn.wode490390.mcbe.mvp.network;
 import cn.wode490390.mcbe.mvp.Main;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
+import com.netease.mc.authlib.Profile;
+import com.netease.mc.authlib.TokenChain;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
@@ -214,6 +216,22 @@ public class PacketHelper {
         }
 
         return jws;
+    }
+
+    public static Profile validateChainDataNetease(JsonNode data) throws Exception {
+        int length = data.size();
+        if (length > 1) {
+            String[] strings = new String[length - 1];
+            for (int i = 1, j = 0; i < length; i++, j++) {
+                strings[j] = data.get(i).asText();
+            }
+            try {
+                return TokenChain.check(strings);
+            } catch (Exception e) {
+
+            }
+        }
+        return null;
     }
 
     public static boolean validateChainData(JsonNode data) throws Exception {

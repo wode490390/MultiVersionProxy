@@ -41,7 +41,7 @@ public class Config {
     @JsonProperty("max-player")
     private int maxPlayer = 20; //TODO
     @JsonProperty("online-mode")
-    private boolean onlineMode = false;
+    private boolean onlineMode = true;
     private boolean whitelist = false; //TODO
 
     public Address getProxy() {

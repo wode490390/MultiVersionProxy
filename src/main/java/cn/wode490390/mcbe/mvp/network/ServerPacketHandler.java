@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
+import com.netease.mc.authlib.Profile;
 import com.nimbusds.jose.JWSObject;
 import com.nimbusds.jwt.SignedJWT;
 import com.nukkitx.protocol.bedrock.BedrockServerSession;
@@ -303,7 +304,10 @@ public class ServerPacketHandler implements BedrockPacketHandler {
         ArrayNode chainData = (ArrayNode) certChainData;
 
         try {
-            if (Main.getInstance().getConfig().isOnlineMode() && !PacketHelper.validateChainData(certChainData)) {
+            Profile profile = PacketHelper.validateChainDataNetease(certChainData);
+            UUID identity;
+
+            if (/*Main.getInstance().getConfig().isOnlineMode() &&*/ profile == null || (identity = profile.identity) == null) {
                 c2p.disconnect("disconnectionScreen.notAuthenticated");
                 PlayerManager.getPlayers().remove(c2p);
                 log.debug("Player data is invalid");
@@ -319,14 +323,7 @@ public class ServerPacketHandler implements BedrockPacketHandler {
 
             JSONObject extraData = (JSONObject) jwt.getPayload().toJSONObject().get("extraData");
 
-            String displayName = extraData.getAsString("displayName");
-            UUID identity = UUID.fromString(extraData.getAsString("identity"));
-            String xuid = extraData.getAsString("XUID");
-
-            if (payload.get("identityPublicKey").getNodeType() != JsonNodeType.STRING) {
-                throw new RuntimeException("Identity Public Key was not found!");
-            }
-            ECPublicKey identityPublicKey = EncryptionUtils.generateKey(payload.get("identityPublicKey").textValue());
+            ECPublicKey identityPublicKey = EncryptionUtils.generateKey(profile.clientPubKey);
 
             JWSObject clientJwt = JWSObject.parse(packet.getSkinData().toString());
             PacketHelper.verifyJwt(clientJwt, identityPublicKey);
@@ -363,9 +360,9 @@ public class ServerPacketHandler implements BedrockPacketHandler {
                 session = new ProxySession(c2p, p2s);
                 session.setProtocol(protocol);
 
-                session.displayName = displayName;
+                session.displayName = profile.displayName;
                 session.identity = identity;
-                session.xuid = xuid;
+                session.xuid = profile.XUID;
 
                 p2s.setPacketHandler(new ClientPacketHandler(p2s, session));
 
