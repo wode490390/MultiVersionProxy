@@ -7,10 +7,10 @@ import com.nukkitx.protocol.bedrock.data.CraftingData;
 import com.nukkitx.protocol.bedrock.data.CraftingType;
 import com.nukkitx.protocol.bedrock.data.ItemData;
 import com.nukkitx.protocol.bedrock.data.PotionMixData;
-import gnu.trove.map.TMap;
-import gnu.trove.map.hash.THashMap;
+
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -239,7 +239,7 @@ public class InventoryManager {
                     if (!craftingTag1.equalsIgnoreCase("crafting_table")) { //TODO: filter others out for now to avoid breaking economics
                         continue;
                     }
-                    TMap<String, ItemData> ingredients = new THashMap<>();
+                    Map<String, ItemData> ingredients = new HashMap<>();
                     ((Map<String, Map<String, Object>>) entry.get("input")).forEach((symbol, itemEntry) -> {
                         Number damage = (Number) itemEntry.get("damage");
                         short meta = 0;
@@ -351,7 +351,7 @@ public class InventoryManager {
                     if (!craftingTag1.equalsIgnoreCase("crafting_table")) { //TODO: filter others out for now to avoid breaking economics
                         continue;
                     }
-                    TMap<String, ItemData> ingredients = new THashMap<>();
+                    Map<String, ItemData> ingredients = new HashMap<>();
                     ((Map<String, Map<String, Object>>) entry.get("input")).forEach((symbol, itemEntry) -> {
                         Number damage = (Number) itemEntry.get("damage");
                         short meta = 0;
@@ -467,7 +467,7 @@ public class InventoryManager {
                     if (!craftingTag1.equalsIgnoreCase("crafting_table")) { //TODO: filter others out for now to avoid breaking economics
                         continue;
                     }
-                    TMap<String, ItemData> ingredients = new THashMap<>();
+                    Map<String, ItemData> ingredients = new HashMap<>();
                     ((Map<String, Map<String, Object>>) entry.get("input")).forEach((symbol, itemEntry) -> {
                         Number damage = (Number) itemEntry.get("damage");
                         short meta = 0;
@@ -586,7 +586,7 @@ public class InventoryManager {
                     if (!craftingTag1.equalsIgnoreCase("crafting_table")) { //TODO: filter others out for now to avoid breaking economics
                         continue;
                     }
-                    TMap<String, ItemData> ingredients = new THashMap<>();
+                    Map<String, ItemData> ingredients = new HashMap<>();
                     ((Map<String, Map<String, Object>>) entry.get("input")).forEach((symbol, itemEntry) -> {
                         Number damage = (Number) itemEntry.get("damage");
                         short meta = 0;
@@ -694,7 +694,7 @@ public class InventoryManager {
                     }
                     break;
                 case 1:
-                    TMap<String, ItemData> ingredients = new THashMap<>();
+                    Map<String, ItemData> ingredients = new HashMap<>();
                     ((Map<String, Map<String, Object>>) entry.get("input")).forEach((symbol, itemEntry) -> {
                         Number damage = (Number) itemEntry.get("damage");
                         short meta = 0;
@@ -815,7 +815,7 @@ public class InventoryManager {
                     }
                     break;
                 case 1:
-                    TMap<String, ItemData> ingredients = new THashMap<>();
+                    Map<String, ItemData> ingredients = new HashMap<>();
                     ((Map<String, Map<String, Object>>) entry.get("input")).forEach((symbol, itemEntry) -> {
                         Number damage = (Number) itemEntry.get("damage");
                         short meta = 0;
@@ -936,7 +936,7 @@ public class InventoryManager {
                     }
                     break;
                 case 1:
-                    TMap<String, ItemData> ingredients = new THashMap<>();
+                    Map<String, ItemData> ingredients = new HashMap<>();
                     ((Map<String, Map<String, Object>>) entry.get("input")).forEach((symbol, itemEntry) -> {
                         Number damage = (Number) itemEntry.get("damage");
                         short meta = 0;
@@ -1057,7 +1057,7 @@ public class InventoryManager {
                     }
                     break;
                 case 1:
-                    TMap<String, ItemData> ingredients = new THashMap<>();
+                    Map<String, ItemData> ingredients = new HashMap<>();
                     ((Map<String, Map<String, Object>>) entry.get("input")).forEach((symbol, itemEntry) -> {
                         Number damage = (Number) itemEntry.get("damage");
                         short meta = 0;

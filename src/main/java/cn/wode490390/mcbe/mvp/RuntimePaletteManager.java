@@ -4,53 +4,55 @@ import com.nukkitx.nbt.CompoundTagBuilder;
 import com.nukkitx.nbt.tag.CompoundTag;
 import com.nukkitx.nbt.tag.ListTag;
 import com.nukkitx.protocol.bedrock.packet.StartGamePacket.ItemEntry;
-import gnu.trove.map.TIntIntMap;
-import gnu.trove.map.hash.TIntIntHashMap;
+import lombok.extern.log4j.Log4j2;
+
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicInteger;
 
+@Log4j2
 public class RuntimePaletteManager {
 
-    private static final TIntIntMap legacyToRuntimeId_v389 = new TIntIntHashMap();
-    private static final TIntIntMap runtimeIdToLegacy_v389 = new TIntIntHashMap();
+    private static final Map<Integer, Integer> legacyToRuntimeId_v389 = new HashMap<>();
+    private static final Map<Integer, Integer> runtimeIdToLegacy_v389 = new HashMap<>();
     private static final AtomicInteger runtimeIdAllocator_v389 = new AtomicInteger(0);
     private static final ListTag<CompoundTag> blockPalette_v389;
 
-    private static final TIntIntMap legacyToRuntimeId_v388 = new TIntIntHashMap();
-    private static final TIntIntMap runtimeIdToLegacy_v388 = new TIntIntHashMap();
+    private static final Map<Integer, Integer> legacyToRuntimeId_v388 = new HashMap<>();
+    private static final Map<Integer, Integer> runtimeIdToLegacy_v388 = new HashMap<>();
     private static final AtomicInteger runtimeIdAllocator_v388 = new AtomicInteger(0);
     private static final ListTag<CompoundTag> blockPalette_v388;
 
-    private static final TIntIntMap legacyToRuntimeId_v361 = new TIntIntHashMap();
-    private static final TIntIntMap runtimeIdToLegacy_v361 = new TIntIntHashMap();
+    private static final Map<Integer, Integer> legacyToRuntimeId_v361 = new HashMap<>();
+    private static final Map<Integer, Integer> runtimeIdToLegacy_v361 = new HashMap<>();
     private static final AtomicInteger runtimeIdAllocator_v361 = new AtomicInteger(0);
     private static final ListTag<CompoundTag> blockPalette_v361;
 
-    private static final TIntIntMap legacyToRuntimeId_v354 = new TIntIntHashMap();
-    private static final TIntIntMap runtimeIdToLegacy_v354 = new TIntIntHashMap();
+    private static final Map<Integer, Integer> legacyToRuntimeId_v354 = new HashMap<>();
+    private static final Map<Integer, Integer> runtimeIdToLegacy_v354 = new HashMap<>();
     private static final AtomicInteger runtimeIdAllocator_v354 = new AtomicInteger(0);
     private static final ListTag<CompoundTag> blockPalette_v354;
 
-    private static final TIntIntMap legacyToRuntimeId_v340 = new TIntIntHashMap();
-    private static final TIntIntMap runtimeIdToLegacy_v340 = new TIntIntHashMap();
+    private static final Map<Integer, Integer> legacyToRuntimeId_v340 = new HashMap<>();
+    private static final Map<Integer, Integer> runtimeIdToLegacy_v340 = new HashMap<>();
     private static final AtomicInteger runtimeIdAllocator_v340 = new AtomicInteger(0);
     private static final ListTag<CompoundTag> blockPalette_v340;
 
-    private static final TIntIntMap legacyToRuntimeId_v332 = new TIntIntHashMap();
-    private static final TIntIntMap runtimeIdToLegacy_v332 = new TIntIntHashMap();
+    private static final Map<Integer, Integer> legacyToRuntimeId_v332 = new HashMap<>();
+    private static final Map<Integer, Integer> runtimeIdToLegacy_v332 = new HashMap<>();
     private static final AtomicInteger runtimeIdAllocator_v332 = new AtomicInteger(0);
     private static final ListTag<CompoundTag> blockPalette_v332;
 
-    private static final TIntIntMap legacyToRuntimeId_v313 = new TIntIntHashMap();
-    private static final TIntIntMap runtimeIdToLegacy_v313 = new TIntIntHashMap();
+    private static final Map<Integer, Integer> legacyToRuntimeId_v313 = new HashMap<>();
+    private static final Map<Integer, Integer> runtimeIdToLegacy_v313 = new HashMap<>();
     private static final AtomicInteger runtimeIdAllocator_v313 = new AtomicInteger(0);
     private static final ListTag<CompoundTag> blockPalette_v313;
 
-    private static final TIntIntMap legacyToRuntimeId_v291 = new TIntIntHashMap();
-    private static final TIntIntMap runtimeIdToLegacy_v291 = new TIntIntHashMap();
+    private static final Map<Integer, Integer> legacyToRuntimeId_v291 = new HashMap<>();
+    private static final Map<Integer, Integer> runtimeIdToLegacy_v291 = new HashMap<>();
     private static final AtomicInteger runtimeIdAllocator_v291 = new AtomicInteger(0);
     private static final ListTag<CompoundTag> blockPalette_v291;
 
@@ -59,15 +61,19 @@ public class RuntimePaletteManager {
     private static final List<ItemEntry> itemPalette_v361 = new ArrayList<>();
 
     static {
-        blockPalette_v389 = (ListTag<CompoundTag>) DedicatedData.loadNbt("blocks_v389.nbt");
+        blockPalette_v389 = (ListTag<CompoundTag>) DedicatedData.loadNbtLE("blocks_v389.nbt");
         blockPalette_v389.getValue().forEach(entry -> {
             int runtimeId = runtimeIdAllocator_v389.getAndIncrement();
-            if (entry.contains("meta")) {
-                short id = entry.getAsShort("id");
-                int[] meta = entry.getAsIntArray("meta");
-                runtimeIdToLegacy_v389.put(runtimeId, getLegacyIdExpanded(id, meta[0]));
-                for (int value : meta) {
-                    legacyToRuntimeId_v389.put(getLegacyIdExpanded(id, value), runtimeId);
+            if (entry.contains("LegacyStates")) {
+                List<CompoundTag> legacyStates = entry.getList("LegacyStates", CompoundTag.class);
+                CompoundTag firstState = legacyStates.get(0);
+                int id = firstState.getInt("id");
+                short meta = firstState.getShort("val");
+                runtimeIdToLegacy_v389.put(runtimeId, getLegacyIdExpanded(id, meta));
+                for (CompoundTag legacyState : legacyStates) {
+                    id = legacyState.getInt("id");
+                    meta = legacyState.getShort("val");
+                    legacyToRuntimeId_v389.put(getLegacyIdExpanded(id, meta), runtimeId);
                 }
             }
         });
@@ -76,8 +82,8 @@ public class RuntimePaletteManager {
         blockPalette_v388.getValue().forEach(entry -> {
             int runtimeId = runtimeIdAllocator_v388.getAndIncrement();
             if (entry.contains("meta")) {
-                short id = entry.getAsShort("id");
-                int[] meta = entry.getAsIntArray("meta");
+                short id = entry.getShort("id");
+                int[] meta = entry.getIntArray("meta");
                 runtimeIdToLegacy_v388.put(runtimeId, getLegacyIdExpanded(id, meta[0]));
                 for (int value : meta) {
                     legacyToRuntimeId_v388.put(getLegacyIdExpanded(id, value), runtimeId);
@@ -409,7 +415,7 @@ public class RuntimePaletteManager {
     }
 
     public static int getBlockMetaExpanded(int legacyId) {
-        return legacyId & 0x7f;
+        return legacyId & 0x3f;
     }
 
     public static List<ItemEntry> getItemPalette_v388() {

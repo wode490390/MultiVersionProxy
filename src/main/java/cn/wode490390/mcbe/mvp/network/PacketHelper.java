@@ -22,13 +22,16 @@ import com.nukkitx.nbt.tag.ListTag;
 import com.nukkitx.nbt.tag.Tag;
 import com.nukkitx.protocol.bedrock.data.GamePublishSetting;
 import com.nukkitx.protocol.bedrock.data.ImageData;
+import com.nukkitx.protocol.bedrock.data.PlayerPermission;
 import com.nukkitx.protocol.bedrock.data.SerializedSkin;
 import com.nukkitx.protocol.bedrock.packet.*;
 import com.nukkitx.protocol.bedrock.util.EncryptionUtils;
-import gnu.trove.map.TObjectIntMap;
-import gnu.trove.map.hash.TObjectIntHashMap;
 import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.Unpooled;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+import net.minidev.json.JSONObject;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
@@ -41,7 +44,6 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
-import net.minidev.json.JSONObject;
 
 public class PacketHelper {
 
@@ -64,7 +66,7 @@ public class PacketHelper {
     public static final String SKIN_RESOURCE_PATCH = Base64.getEncoder().encodeToString("{\"geometry\":{\"default\":\"geometry.humanoid.custom\"}}".getBytes(StandardCharsets.UTF_8));
     public static final String SKIN_RESOURCE_PATCH_SLIM = Base64.getEncoder().encodeToString("{\"geometry\":{\"default\":\"geometry.humanoid.customSlim\"}}".getBytes(StandardCharsets.UTF_8));
 
-    public static final TObjectIntMap<String> ENTITY_ID_V291 = new TObjectIntHashMap<String>(){
+    public static final Object2IntMap<String> ENTITY_ID_V291 = new Object2IntOpenHashMap<String>(){
         {
             //1.7
             put("minecraft:npc", 51);
@@ -310,7 +312,7 @@ public class PacketHelper {
         startGamePacket.setTexturePacksRequired(false);
         startGamePacket.setBonusChestEnabled(false);
         startGamePacket.setStartingWithMap(false);
-        startGamePacket.setDefaultPlayerPermission(1);
+        startGamePacket.setDefaultPlayerPermission(PlayerPermission.MEMBER);
         startGamePacket.setServerChunkTickRange(4);
         startGamePacket.setBehaviorPackLocked(false);
         startGamePacket.setResourcePackLocked(false);

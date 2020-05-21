@@ -20,12 +20,14 @@ import com.nukkitx.protocol.bedrock.v354.Bedrock_v354;
 import com.nukkitx.protocol.bedrock.v361.Bedrock_v361;
 import com.nukkitx.protocol.bedrock.v388.Bedrock_v388;
 import com.nukkitx.protocol.bedrock.v389.Bedrock_v389;
+import com.nukkitx.protocol.bedrock.v390.Bedrock_v390;
 import io.netty.util.AsciiString;
+import lombok.extern.log4j.Log4j2;
+import net.minidev.json.JSONObject;
+
 import java.io.IOException;
 import java.security.interfaces.ECPublicKey;
 import java.util.UUID;
-import lombok.extern.log4j.Log4j2;
-import net.minidev.json.JSONObject;
 
 @Log4j2
 public class ServerPacketHandler implements BedrockPacketHandler {
@@ -230,7 +232,7 @@ public class ServerPacketHandler implements BedrockPacketHandler {
     }
 
     @Override
-    public boolean handle(LevelSoundEvent3Packet packet) { //1.9+
+    public boolean handle(LevelSoundEventPacket packet) { //1.9+
         if (c2p.getPacketCodec().getProtocolVersion() != Main.PROTOCOL_VERSION) {
             session.sendPacketToServer(packet);
         }
@@ -238,7 +240,7 @@ public class ServerPacketHandler implements BedrockPacketHandler {
     }
 
     @Override
-    public boolean handle(LevelSoundEventPacket packet) { //TODO
+    public boolean handle(LevelSoundEvent1Packet packet) { //TODO
         if (c2p.getPacketCodec().getProtocolVersion() != Main.PROTOCOL_VERSION) {
             session.sendPacketToServer(packet);
         }
@@ -250,11 +252,14 @@ public class ServerPacketHandler implements BedrockPacketHandler {
         int protocol = packet.getProtocolVersion();
         log.info("{} logged in with protocol version {}", c2p.getAddress(), protocol);
         switch (protocol) {
-            case 389:
-                c2p.setPacketCodec(Bedrock_v389.V389_CODEC);
+            case 390:
+                c2p.setPacketCodec(Bedrock_v390.V390_CODEC);
                 c2p.sendPacket(PacketHelper.getPlayStatusPacket0());
                 c2p.sendPacket(PacketHelper.getResourcePacksInfoPacket());
                 return true;
+            case 389:
+                c2p.setPacketCodec(Bedrock_v389.V389_CODEC);
+                break;
             case 388:
                 c2p.setPacketCodec(Bedrock_v388.V388_CODEC);
                 break;
@@ -511,6 +516,9 @@ public class ServerPacketHandler implements BedrockPacketHandler {
     public boolean handle(PlayerSkinPacket packet) {
         if (c2p.getPacketCodec().getProtocolVersion() != Main.PROTOCOL_VERSION) {
             session.sendPacketToServer(packet);
+        }
+        if (c2p.getPacketCodec().getProtocolVersion() < Bedrock_v390.V390_CODEC.getProtocolVersion()) {
+            packet.setTrustedSkin(false);
         }
         return true;
     }

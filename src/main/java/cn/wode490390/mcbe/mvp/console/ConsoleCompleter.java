@@ -2,14 +2,15 @@ package cn.wode490390.mcbe.mvp.console;
 
 import cn.wode490390.mcbe.mvp.Main;
 import cn.wode490390.mcbe.mvp.PlayerManager;
-import java.util.List;
-import java.util.SortedSet;
-import java.util.TreeSet;
-import java.util.function.Consumer;
 import org.jline.reader.Candidate;
 import org.jline.reader.Completer;
 import org.jline.reader.LineReader;
 import org.jline.reader.ParsedLine;
+
+import java.util.List;
+import java.util.SortedSet;
+import java.util.TreeSet;
+import java.util.function.Consumer;
 
 public class ConsoleCompleter implements Completer {
 

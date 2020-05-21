@@ -2,6 +2,8 @@ package cn.wode490390.mcbe.mvp.network;
 
 import cn.wode490390.mcbe.mvp.InventoryManager;
 import cn.wode490390.mcbe.mvp.RuntimePaletteManager;
+import cn.wode490390.mcbe.mvp.util.BitArray;
+import cn.wode490390.mcbe.mvp.util.BitArrayVersion;
 import com.nimbusds.jwt.SignedJWT;
 import com.nukkitx.nbt.NbtUtils;
 import com.nukkitx.nbt.stream.NBTInputStream;
@@ -9,6 +11,7 @@ import com.nukkitx.nbt.stream.NBTOutputStream;
 import com.nukkitx.nbt.tag.Tag;
 import com.nukkitx.network.VarInts;
 import com.nukkitx.protocol.bedrock.BedrockClientSession;
+import com.nukkitx.protocol.bedrock.BedrockPacket;
 import com.nukkitx.protocol.bedrock.data.ContainerId;
 import com.nukkitx.protocol.bedrock.data.ContainerMixData;
 import com.nukkitx.protocol.bedrock.data.CraftingData;
@@ -28,6 +31,10 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.ByteBufOutputStream;
 import io.netty.buffer.Unpooled;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import lombok.extern.log4j.Log4j2;
+
+import javax.crypto.SecretKey;
 import java.io.IOException;
 import java.net.URI;
 import java.security.InvalidKeyException;
@@ -38,14 +45,16 @@ import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
-import javax.crypto.SecretKey;
-import lombok.extern.log4j.Log4j2;
 
 @Log4j2
-public class ClientPacketHandler implements BedrockPacketHandler {
+public class ClientPacketHandler implements BedrockPacketHandler { //TODO: fix player movement 1.7-1.10
 
     private final BedrockClientSession p2s;
     private final ProxySession session;
+
+    private boolean gameStarted = false; // Nukkit bug...
+    private final BedrockPacket[] orderedPackets = new BedrockPacket[3]; // StartGamePacket + BiomeDefinitionListPacket + AvailableEntityIdentifiersPacket
+    private final List<BedrockPacket> waiting = new ObjectArrayList<>();
 
     public ClientPacketHandler(BedrockClientSession p2s, ProxySession session) {
         this.p2s = p2s;
@@ -67,57 +76,90 @@ public class ClientPacketHandler implements BedrockPacketHandler {
                 return true;
             }
         }
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(AddItemEntityPacket packet) { //TODO: item
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(AddPaintingPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(AddPlayerPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(AdventureSettingsPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(AnimatePacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(AutomationClientConnectPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(AvailableCommandsPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(AvailableEntityIdentifiersPacket packet) {
         switch (session.getProtocol()) {
+            case 390:
             case 389:
-                packet.setTag(PacketHelper.ENTITY_IDENTIFIERS_V389);
+                //packet.setTag(PacketHelper.ENTITY_IDENTIFIERS_V389);
                 break;
             case 388:
                 packet.setTag(PacketHelper.ENTITY_IDENTIFIERS_V388);
@@ -140,7 +182,17 @@ public class ClientPacketHandler implements BedrockPacketHandler {
             default:
                 return true;
         }
-        session.sendPacketToClient(packet);
+        if (!this.gameStarted) {
+            this.orderedPackets[2] = packet;
+            for (BedrockPacket pk : this.orderedPackets) {
+                if (pk == null) {
+                    return true;
+                }
+            }
+            session.sendStartGame(this.orderedPackets);
+            this.gameStarted = true;
+            this.waiting.forEach(session::sendPacketToClient);
+        }
         return true;
     }
 
@@ -148,6 +200,7 @@ public class ClientPacketHandler implements BedrockPacketHandler {
     public boolean handle(BiomeDefinitionListPacket packet) { //1.8+
         if (session.getProtocol() >= Bedrock_v313.V313_CODEC.getProtocolVersion()) {
             switch (session.getProtocol()) {
+                case 390:
                 case 389:
                 case 388:
                     packet.setTag(PacketHelper.BIOME_DEFINITION_LIST_V388);
@@ -159,141 +212,233 @@ public class ClientPacketHandler implements BedrockPacketHandler {
                     break;
                 case 332:
                 case 313:
-                //packet.setTag(PacketHelper.ENTITY_IDENTIFIERS_V313);
-                //break;
+                    packet.setTag(PacketHelper.ENTITY_IDENTIFIERS_V313);
+                    break;
                 default:
                     return true;
             }
-            session.sendPacketToClient(packet);
+            if (!this.gameStarted) {
+                this.orderedPackets[1] = packet;
+                for (BedrockPacket pk : this.orderedPackets) {
+                    if (pk == null) {
+                        return true;
+                    }
+                }
+                session.sendStartGame(this.orderedPackets);
+                this.gameStarted = true;
+                this.waiting.forEach(session::sendPacketToClient);
+            }
         }
         return true;
     }
 
     @Override
     public boolean handle(BlockEntityDataPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(BlockEventPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(BossEventPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(CameraPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(ChangeDimensionPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(ChunkRadiusUpdatedPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(ClientboundMapItemDataPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(ClientCacheMissResponsePacket packet) { //1.12+
         if (session.getProtocol() >= Bedrock_v361.V361_CODEC.getProtocolVersion()) {
-            session.sendPacketToClient(packet);
+            if (this.gameStarted) {
+                session.sendPacketToClient(packet);
+            } else {
+                this.waiting.add(packet);
+            }
         }
         return true;
     }
 
     @Override
     public boolean handle(CommandOutputPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(CompletedUsingItemPacket packet) { //1.13+
         if (session.getProtocol() >= Bedrock_v388.V388_CODEC.getProtocolVersion()) {
-            session.sendPacketToClient(packet);
+            if (this.gameStarted) {
+                session.sendPacketToClient(packet);
+            } else {
+                this.waiting.add(packet);
+            }
         }
         return true;
     }
 
     @Override
     public boolean handle(ContainerClosePacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(ContainerOpenPacket packet) {
         if (packet.getType() <= 23) { //LAB_TABLE
-            session.sendPacketToClient(packet);
+            if (this.gameStarted) {
+                session.sendPacketToClient(packet);
+            } else {
+                this.waiting.add(packet);
+            }
         } else if (session.getProtocol() >= Bedrock_v354.V354_CODEC.getProtocolVersion()) { //27-29 1.11+
-            session.sendPacketToClient(packet);
+            if (this.gameStarted) {
+                session.sendPacketToClient(packet);
+            } else {
+                this.waiting.add(packet);
+            }
         }
         return true;
     }
 
     @Override
     public boolean handle(ContainerSetDataPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
-    public boolean handle(CraftingDataPacket packet) {
+    public boolean handle(CraftingDataPacket packet) { //TODO: fix
         List<CraftingData> craftingData = packet.getCraftingData();
         List<PotionMixData> potionData = packet.getPotionMixData();
         List<ContainerMixData> containerData = packet.getContainerMixData();
-        craftingData.clear();
-        potionData.clear();
-        containerData.clear();
         switch (session.getProtocol()) {
+            case 390:
             case 389:
-                craftingData.addAll(InventoryManager.getRecipes_v389());
-                potionData.addAll(InventoryManager.getPotions_v389());
-                containerData.addAll(InventoryManager.getContainers_v389());
+                //craftingData.clear();
+                //potionData.clear();
+                //containerData.clear();
+                //craftingData.addAll(InventoryManager.getRecipes_v389());
+                //potionData.addAll(InventoryManager.getPotions_v389());
+                //containerData.addAll(InventoryManager.getContainers_v389());
                 break;
             case 388:
+                craftingData.clear();
+                potionData.clear();
+                containerData.clear();
                 craftingData.addAll(InventoryManager.getRecipes_v388());
                 potionData.addAll(InventoryManager.getPotions_v388());
                 containerData.addAll(InventoryManager.getContainers_v388());
                 break;
             case 361:
+                craftingData.clear();
+                potionData.clear();
+                containerData.clear();
                 craftingData.addAll(InventoryManager.getRecipes_v361());
                 break;
             case 354:
+                craftingData.clear();
+                potionData.clear();
+                containerData.clear();
                 craftingData.addAll(InventoryManager.getRecipes_v354());
                 break;
             case 340:
+                craftingData.clear();
+                potionData.clear();
+                containerData.clear();
                 craftingData.addAll(InventoryManager.getRecipes_v340());
                 break;
             case 332:
+                craftingData.clear();
+                potionData.clear();
+                containerData.clear();
                 craftingData.addAll(InventoryManager.getRecipes_v332());
                 break;
             case 313:
+                craftingData.clear();
+                potionData.clear();
+                containerData.clear();
                 craftingData.addAll(InventoryManager.getRecipes_v313());
                 break;
             case 291:
+                craftingData.clear();
+                potionData.clear();
+                containerData.clear();
                 craftingData.addAll(InventoryManager.getRecipes_v291());
                 break;
         }
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
@@ -307,7 +452,11 @@ public class ClientPacketHandler implements BedrockPacketHandler {
     @Override
     public boolean handle(EducationSettingsPacket packet) { //1.13+
         if (session.getProtocol() >= Bedrock_v388.V388_CODEC.getProtocolVersion()) {
-            session.sendPacketToClient(packet);
+            if (this.gameStarted) {
+                session.sendPacketToClient(packet);
+            } else {
+                this.waiting.add(packet);
+            }
         }
         return true;
     }
@@ -315,46 +464,74 @@ public class ClientPacketHandler implements BedrockPacketHandler {
     @Override
     public boolean handle(EmotePacket packet) { //1.13+
         if (session.getProtocol() >= Bedrock_v388.V388_CODEC.getProtocolVersion()) {
-            session.sendPacketToClient(packet);
+            if (this.gameStarted) {
+                session.sendPacketToClient(packet);
+            } else {
+                this.waiting.add(packet);
+            }
         }
         return true;
     }
 
     @Override
     public boolean handle(EntityEventPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(EventPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(ExplodePacket packet) { //-1.12
         if (session.getProtocol() < Bedrock_v388.V388_CODEC.getProtocolVersion()) {
-            session.sendPacketToClient(packet);
+            if (this.gameStarted) {
+                session.sendPacketToClient(packet);
+            } else {
+                this.waiting.add(packet);
+            }
         }
         return true;
     }
 
     @Override
     public boolean handle(GameRulesChangedPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(GuiDataPickItemPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(HurtArmorPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
@@ -362,8 +539,9 @@ public class ClientPacketHandler implements BedrockPacketHandler {
     public boolean handle(InventoryContentPacket packet) { //TODO: item
         if (packet.getContainerId() == ContainerId.CREATIVE) {
             switch (session.getProtocol()) {
+                case 390:
                 case 389:
-                    packet.setContents(InventoryManager.getCreative_v389());
+                    //packet.setContents(InventoryManager.getCreative_v389());
                     break;
                 case 388:
                     packet.setContents(InventoryManager.getCreative_v388());
@@ -388,73 +566,144 @@ public class ClientPacketHandler implements BedrockPacketHandler {
                     break;
             }
         }
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(InventorySlotPacket packet) { //TODO: item
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(InventoryTransactionPacket packet) { //TODO: item
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(LabTablePacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(LevelChunkPacket packet) {
-        if (session.getProtocol() >= Bedrock_v361.V361_CODEC.getProtocolVersion()) {
-            session.sendPacketToClient(packet);
+        if (session.getProtocol() >= Bedrock_v389.V389_CODEC.getProtocolVersion()) {
+            if (this.gameStarted) {
+                session.sendPacketToClient(packet);
+            } else {
+                this.waiting.add(packet);
+            }
             return true;
         }
         ByteBuf data = Unpooled.wrappedBuffer(packet.getData());
         ByteBuf fixer = Unpooled.buffer();
         int count = packet.getSubChunksLength();
-        fixer.writeByte(count);
-        byte[][] sections = new byte[count][];
-        for (int i = 0; i < count; i++) {
-            fixer.writeByte(data.readByte());
-            byte[] ids = new byte[4096];
-            sections[i] = ids;
-            data.readBytes(ids);
-            fixer.writeBytes(ids);
-            byte[] meta = new byte[2048];
-            data.readBytes(meta);
-            fixer.writeBytes(meta);
+        if (session.getProtocol() < Bedrock_v361.V361_CODEC.getProtocolVersion()) {
+            fixer.writeByte(count);
         }
-        if (count > 0) {
-            byte[] heightMap = new byte[256];
-            for (int x = 0; x < 16; ++x) {
-                int xi = x << 8;
-                for (int z = 0; z < 16; ++z) {
-                    int zi = z << 4;
-                    int xz = xi + zi;
-                    y:
-                    for (int i = count - 1; i >= 0; --i) {
-                        byte[] section = sections[i];
-                        for (int y = 15; y >= 0; --y) {
-                            if (section[xz + y] != 0) {
-                                heightMap[(z << 4) | x] = (byte) ((i << 4) + y);
-                                break y;
+        BitArray[] sections = new BitArray[count];
+        for (int i = 0; i < count; i++) {
+            fixer.writeByte(data.readByte()); // version: 8
+            byte storageCount = data.readByte(); //2
+            fixer.writeByte(storageCount);
+            for (int j = 0; j < storageCount; j++) {
+                byte header = data.readByte();
+                fixer.writeByte(header);
+                int bit = header >> 1;
+                BitArrayVersion version = BitArrayVersion.get(bit, true);
+                int expectedWordCount = version.getWordsForSize(4096);
+                boolean isFirst = j == 0;
+                int[] words = isFirst ? new int[expectedWordCount] : null;
+                for (int k = 0; k < expectedWordCount; k++) {
+                    int value = data.readIntLE();
+                    if (isFirst) {
+                        words[k] = value;
+                    }
+                    fixer.writeIntLE(value);
+                }
+                if (isFirst) {
+                    sections[i] = version.createPalette(4096, words);
+                }
+                int paletteSize = VarInts.readInt(data);
+                VarInts.writeInt(fixer, paletteSize);
+                for (int l = 0; l < paletteSize; l++) {
+                    int runtimeId = VarInts.readInt(data);
+                    switch (session.getProtocol()) {
+                        case 390:
+                        case 389:
+                            //runtimeId = RuntimePaletteManager.getRuntimeId_v389(RuntimePaletteManager.getLegacyId_v389(runtimeId));
+                            break;
+                        case 388:
+                            runtimeId = RuntimePaletteManager.getRuntimeId_v388(RuntimePaletteManager.getLegacyId_v389(runtimeId));
+                            break;
+                        case 361:
+                            runtimeId = RuntimePaletteManager.getRuntimeId_v361(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v389(runtimeId)));
+                            break;
+                        case 354:
+                            runtimeId = RuntimePaletteManager.getRuntimeId_v354(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v389(runtimeId)));
+                            break;
+                        case 340:
+                            runtimeId = RuntimePaletteManager.getRuntimeId_v340(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v389(runtimeId)));
+                            break;
+                        case 332:
+                            runtimeId = RuntimePaletteManager.getRuntimeId_v332(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v389(runtimeId)));
+                            break;
+                        case 313:
+                            runtimeId = RuntimePaletteManager.getRuntimeId_v313(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v389(runtimeId)));
+                            break;
+                        case 291:
+                            runtimeId = RuntimePaletteManager.getRuntimeId_v291(RuntimePaletteManager.convertToLegacy(RuntimePaletteManager.getLegacyId_v389(runtimeId)));
+                            break;
+                    }
+                    VarInts.writeInt(fixer, runtimeId);
+                }
+            }
+        }
+        if (session.getProtocol() < Bedrock_v361.V361_CODEC.getProtocolVersion()) {
+            if (count > 0) {
+                byte[] heightMap = new byte[256];
+                for (int x = 0; x < 16; ++x) {
+                    int xi = x << 8;
+                    for (int z = 0; z < 16; ++z) {
+                        int zi = z << 4;
+                        int xz = xi + zi;
+                        y:
+                        for (int i = count - 1; i >= 0; --i) {
+                            BitArray section = sections[i];
+                            for (int y = 15; y >= 0; --y) {
+                                if (section.get(xz + y) != 0) {
+                                    heightMap[(z << 4) | x] = (byte) ((i << 4) + y);
+                                    break y;
+                                }
                             }
                         }
                     }
                 }
+                fixer.writeBytes(heightMap);
+            } else {
+                fixer.writeBytes(PacketHelper.PAD_256); //height map
             }
-            fixer.writeBytes(heightMap);
-        } else {
-            fixer.writeBytes(PacketHelper.PAD_256); //height map
+            fixer.writeBytes(PacketHelper.PAD_256);
         }
-        fixer.writeBytes(PacketHelper.PAD_256);
         byte[] biome = new byte[256]; //16 * 16
         data.readBytes(biome);
         fixer.writeBytes(biome);
@@ -481,7 +730,11 @@ public class ClientPacketHandler implements BedrockPacketHandler {
         byte[] fixed = new byte[fixer.readableBytes()];
         fixer.readBytes(fixed);
         packet.setData(fixed);
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         data.release();
         fixer.release();
         return true;
@@ -490,21 +743,33 @@ public class ClientPacketHandler implements BedrockPacketHandler {
     @Override
     public boolean handle(LevelEventGenericPacket packet) { //1.12+
         if (session.getProtocol() >= Bedrock_v361.V361_CODEC.getProtocolVersion()) {
-            session.sendPacketToClient(packet);
+            if (this.gameStarted) {
+                session.sendPacketToClient(packet);
+            } else {
+                this.waiting.add(packet);
+            }
         }
         return true;
     }
 
     @Override
     public boolean handle(LevelEventPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(LevelSoundEvent2Packet packet) { //1.8+
         if (session.getProtocol() >= Bedrock_v313.V313_CODEC.getProtocolVersion() && packet.getSound().ordinal() <= 0xff) {
-            session.sendPacketToClient(packet);
+            if (this.gameStarted) {
+                session.sendPacketToClient(packet);
+            } else {
+                this.waiting.add(packet);
+            }
         } else if (packet.getSound().ordinal() <= 214) {
             switch (packet.getSound().ordinal()) {
                 case 151:
@@ -515,7 +780,7 @@ public class ClientPacketHandler implements BedrockPacketHandler {
                 case 198:
                     return true;
             }
-            LevelSoundEventPacket v1 = new LevelSoundEventPacket();
+            LevelSoundEvent1Packet v1 = new LevelSoundEvent1Packet();
             v1.setSound(packet.getSound());
             v1.setPosition(packet.getPosition());
             v1.setExtraData(packet.getExtraData());
@@ -528,7 +793,7 @@ public class ClientPacketHandler implements BedrockPacketHandler {
     }
 
     @Override
-    public boolean handle(LevelSoundEvent3Packet packet) { //1.9+
+    public boolean handle(LevelSoundEventPacket packet) { //1.9+
         if (session.getProtocol() >= Bedrock_v332.V332_CODEC.getProtocolVersion()) {
             switch (session.getProtocol()) {
                 case 361: //1.12
@@ -548,7 +813,11 @@ public class ClientPacketHandler implements BedrockPacketHandler {
                     }
                     break;
             }
-            session.sendPacketToClient(packet);
+            if (this.gameStarted) {
+                session.sendPacketToClient(packet);
+            } else {
+                this.waiting.add(packet);
+            }
         } else if (packet.getSound().ordinal() <= 0xff) { //TODO: NullPointerException???
             LevelSoundEvent2Packet v2 = new LevelSoundEvent2Packet();
             v2.setSound(packet.getSound());
@@ -563,62 +832,98 @@ public class ClientPacketHandler implements BedrockPacketHandler {
     }
 
     @Override
-    public boolean handle(LevelSoundEventPacket packet) {
+    public boolean handle(LevelSoundEvent1Packet packet) {
         if (packet.getSound().ordinal() <= 0xff) {
             if ((packet.getSound().ordinal() > 214 || packet.getSound().ordinal() == 187) && session.getProtocol() < Bedrock_v313.V313_CODEC.getProtocolVersion()) { //SOUND_BLOCK_FLETCHING_TABLE_USE
                 return true;
             }
-            session.sendPacketToClient(packet);
+            if (this.gameStarted) {
+                session.sendPacketToClient(packet);
+            } else {
+                this.waiting.add(packet);
+            }
         }
         return true;
     }
 
     @Override
     public boolean handle(MobArmorEquipmentPacket packet) { //TODO: item
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(MobEffectPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(MobEquipmentPacket packet) { //TODO: item
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(ModalFormRequestPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(MoveEntityAbsolutePacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(MoveEntityDeltaPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(MovePlayerPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
-    @Override //TODO: this might be clientbound too, but unsure
+    @Override
     public boolean handle(MultiplayerSettingsPacket packet) { //1.13+
         if (session.getProtocol() >= Bedrock_v388.V388_CODEC.getProtocolVersion()) {
-            session.sendPacketToClient(packet);
+            if (this.gameStarted) {
+                session.sendPacketToClient(packet);
+            } else {
+                this.waiting.add(packet);
+            }
         }
         return true;
     }
@@ -626,7 +931,11 @@ public class ClientPacketHandler implements BedrockPacketHandler {
     @Override
     public boolean handle(NetworkChunkPublisherUpdatePacket packet) { //1.8+
         if (session.getProtocol() >= Bedrock_v313.V313_CODEC.getProtocolVersion()) {
-            session.sendPacketToClient(packet);
+            if (this.gameStarted) {
+                session.sendPacketToClient(packet);
+            } else {
+                this.waiting.add(packet);
+            }
         }
         return true;
     }
@@ -634,34 +943,54 @@ public class ClientPacketHandler implements BedrockPacketHandler {
     @Override
     public boolean handle(NetworkSettingsPacket packet) { //1.13+
         //if (session.getProtocol() >= Bedrock_v388.V388_CODEC.getProtocolVersion()) {
+        //  if (this.gameStarted) {
         //    session.sendPacketToClient(packet);
+        //  } else {
+        //    this.waiting.add(packet);
+        //  }
         //}
         return true;
     }
 
     @Override
     public boolean handle(NetworkStackLatencyPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(OnScreenTextureAnimationPacket packet) { //1.11+
         if (session.getProtocol() >= Bedrock_v354.V354_CODEC.getProtocolVersion()) {
-            session.sendPacketToClient(packet);
+            if (this.gameStarted) {
+                session.sendPacketToClient(packet);
+            } else {
+                this.waiting.add(packet);
+            }
         }
         return true;
     }
 
     @Override
     public boolean handle(PhotoTransferPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(PlayerHotbarPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
@@ -681,13 +1010,21 @@ public class ClientPacketHandler implements BedrockPacketHandler {
         if (session.getProtocol() < Bedrock_v388.V388_CODEC.getProtocolVersion()) {
             packet.setSkin(PacketHelper.checkLegacySkin(packet.getSkin()));
         }
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(PlaySoundPacket packet) { //TODO: check?
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
@@ -699,13 +1036,21 @@ public class ClientPacketHandler implements BedrockPacketHandler {
 
     @Override
     public boolean handle(RemoveEntityPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(RemoveObjectivePacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
@@ -734,6 +1079,17 @@ public class ClientPacketHandler implements BedrockPacketHandler {
 
     @Override
     public boolean handle(ResourcePackStackPacket packet) {
+        switch (session.getProtocol()) {
+            case 390:
+                packet.setGameVersion("1.14.60");
+                break;
+            case 389:
+                packet.setGameVersion("1.14.0");
+                break;
+            case 388:
+                packet.setGameVersion("1.13.0");
+                break;
+        }
         session.sendPacketToClient(packet);
         return true;
     }
@@ -741,27 +1097,39 @@ public class ClientPacketHandler implements BedrockPacketHandler {
     @Override
     public boolean handle(RespawnPacket packet) {
         if (session.getProtocol() < Bedrock_v388.V388_CODEC.getProtocolVersion()) {
-            switch (packet.getSpawnState()) {
+            switch (packet.getState()) {
                 case SERVER_SEARCHING:
                     RespawnPacket res = new RespawnPacket();
                     res.setPosition(packet.getPosition());
-                    res.setSpawnState(RespawnPacket.State.CLIENT_READY);
+                    res.setState(RespawnPacket.State.CLIENT_READY);
                     res.setRuntimeEntityId(packet.getRuntimeEntityId());
                     p2s.sendPacket(res);
                     break;
                 case SERVER_READY:
-                    session.sendPacketToClient(packet);
+                    if (this.gameStarted) {
+                        session.sendPacketToClient(packet);
+                    } else {
+                        this.waiting.add(packet);
+                    }
                     break;
             }
         } else {
-            session.sendPacketToClient(packet);
+            if (this.gameStarted) {
+                session.sendPacketToClient(packet);
+            } else {
+                this.waiting.add(packet);
+            }
         }
         return true;
     }
 
     @Override
     public boolean handle(ServerSettingsResponsePacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
@@ -782,79 +1150,131 @@ public class ClientPacketHandler implements BedrockPacketHandler {
 
     @Override
     public boolean handle(SetCommandsEnabledPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(SetDefaultGameTypePacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(SetDifficultyPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(SetDisplayObjectivePacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(SetEntityDataPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(SetEntityLinkPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(SetEntityMotionPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(SetHealthPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(SetLastHurtByPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(SetPlayerGameTypePacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(SetScoreboardIdentityPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(SetScorePacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(SetSpawnPositionPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
@@ -866,38 +1286,62 @@ public class ClientPacketHandler implements BedrockPacketHandler {
 
     @Override
     public boolean handle(SetTitlePacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(ShowCreditsPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(ShowProfilePacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(ShowStoreOfferPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(SimpleEventPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(SpawnParticleEffectPacket packet) { //1.8+
         if (session.getProtocol() >= Bedrock_v313.V313_CODEC.getProtocolVersion()) {
-            session.sendPacketToClient(packet);
+            if (this.gameStarted) {
+                session.sendPacketToClient(packet);
+            } else {
+                this.waiting.add(packet);
+            }
         }
         return true;
     }
@@ -905,11 +1349,15 @@ public class ClientPacketHandler implements BedrockPacketHandler {
     @Override
     public boolean handle(StartGamePacket packet) {
         switch (session.getProtocol()) {
+            case 390:
+                packet.setVanillaVersion("1.14.60"); //...
             case 389:
+                packet.setVanillaVersion("1.14.0");
                 //packet.setItemEntries(RuntimePaletteManager.getItemPalette_v389());
                 //packet.setBlockPalette(RuntimePaletteManager.getBlockPalette_v389());
                 break;
             case 388:
+                packet.setVanillaVersion("1.13.0");
                 packet.setItemEntries(RuntimePaletteManager.getItemPalette_v388());
                 packet.setBlockPalette(RuntimePaletteManager.getBlockPalette_v388());
                 break;
@@ -935,27 +1383,51 @@ public class ClientPacketHandler implements BedrockPacketHandler {
                 packet.setBlockPalette(RuntimePaletteManager.getBlockPalette_v291());
                 break;
         }
-        session.sendPacketToClient(packet);
+        if (session.getProtocol() >= Bedrock_v313.V313_CODEC.getProtocolVersion()) {
+            this.orderedPackets[0] = packet;
+            for (BedrockPacket pk : this.orderedPackets) {
+                if (pk == null) {
+                    return true;
+                }
+            }
+            session.sendStartGame(this.orderedPackets);
+        } else {
+            session.sendPacketToClientImmediately(packet);
+        }
+        this.gameStarted = true;
+        this.waiting.forEach(session::sendPacketToClient);
         return true;
     }
 
     @Override
     public boolean handle(StopSoundPacket packet) { //TODO: check?
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(StructureTemplateDataExportResponsePacket packet) { //1.12+
         if (session.getProtocol() >= Bedrock_v361.V361_CODEC.getProtocolVersion()) {
-            session.sendPacketToClient(packet);
+            if (this.gameStarted) {
+                session.sendPacketToClient(packet);
+            } else {
+                this.waiting.add(packet);
+            }
         }
         return true;
     }
 
     @Override
     public boolean handle(TakeItemEntityPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
@@ -964,33 +1436,50 @@ public class ClientPacketHandler implements BedrockPacketHandler {
         if (packet.getType().ordinal() == 9 && session.getProtocol() < Bedrock_v332.V332_CODEC.getProtocolVersion()) { //TextPacket.Type.JSON 1.9+
             packet.setType(TextPacket.Type.RAW);
         }
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(TickSyncPacket packet) { //1.13+
         if (session.getProtocol() >= Bedrock_v388.V388_CODEC.getProtocolVersion()) {
-            session.sendPacketToClient(packet);
+            if (this.gameStarted) {
+                session.sendPacketToClient(packet);
+            } else {
+                this.waiting.add(packet);
+            }
         }
         return true;
     }
 
     @Override
     public boolean handle(TransferPacket packet) {
-        session.sendPacketToClientImmediately(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClientImmediately(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(UpdateAttributesPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(UpdateBlockPacket packet) {
         switch (session.getProtocol()) {
+            case 390:
             case 389:
                 //packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v389(RuntimePaletteManager.getLegacyId_v389(packet.getRuntimeId())));
                 break;
@@ -1018,14 +1507,22 @@ public class ClientPacketHandler implements BedrockPacketHandler {
             default:
                 return true;
         }
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(UpdateBlockPropertiesPacket packet) { //1.12+
         if (session.getProtocol() >= Bedrock_v361.V361_CODEC.getProtocolVersion()) {
-            session.sendPacketToClient(packet);
+            if (this.gameStarted) {
+                session.sendPacketToClient(packet);
+            } else {
+                this.waiting.add(packet);
+            }
         }
         return true;
     }
@@ -1033,6 +1530,7 @@ public class ClientPacketHandler implements BedrockPacketHandler {
     @Override
     public boolean handle(UpdateBlockSyncedPacket packet) {
         switch (session.getProtocol()) {
+            case 390:
             case 389:
                 //packet.setRuntimeId(RuntimePaletteManager.getRuntimeId_v389(RuntimePaletteManager.getLegacyId_v389(packet.getRuntimeId())));
                 break;
@@ -1060,32 +1558,52 @@ public class ClientPacketHandler implements BedrockPacketHandler {
             default:
                 return true;
         }
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(UpdateEquipPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(UpdateSoftEnumPacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(UpdateTradePacket packet) {
-        session.sendPacketToClient(packet);
+        if (this.gameStarted) {
+            session.sendPacketToClient(packet);
+        } else {
+            this.waiting.add(packet);
+        }
         return true;
     }
 
     @Override
     public boolean handle(VideoStreamConnectPacket packet) { //1.10+
         if (session.getProtocol() >= Bedrock_v340.V340_CODEC.getProtocolVersion()) {
-            session.sendPacketToClient(packet);
+            if (this.gameStarted) {
+                session.sendPacketToClient(packet);
+            } else {
+                this.waiting.add(packet);
+            }
         }
         return true;
     }

@@ -6,10 +6,12 @@ import com.nukkitx.protocol.bedrock.BedrockClientSession;
 import com.nukkitx.protocol.bedrock.BedrockPacket;
 import com.nukkitx.protocol.bedrock.BedrockServerSession;
 import com.nukkitx.protocol.bedrock.util.EncryptionUtils;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import lombok.extern.log4j.Log4j2;
+
+import javax.annotation.Nonnull;
 import java.security.KeyPair;
 import java.util.UUID;
-import javax.annotation.Nonnull;
-import lombok.extern.log4j.Log4j2;
 
 @Log4j2
 public class ProxySession {
@@ -74,5 +76,9 @@ public class ProxySession {
 
     public void sendPacketToServerImmediately(@Nonnull BedrockPacket packet) {
         p2s.sendPacketImmediately(packet);
+    }
+
+    public void sendStartGame(@Nonnull BedrockPacket[] orderedPackets) {
+        c2p.sendWrapped(ObjectArrayList.wrap(orderedPackets), true);
     }
 }

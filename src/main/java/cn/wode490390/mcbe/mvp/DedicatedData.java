@@ -3,6 +3,8 @@ package cn.wode490390.mcbe.mvp;
 import com.nukkitx.nbt.NbtUtils;
 import com.nukkitx.nbt.stream.NBTInputStream;
 import com.nukkitx.nbt.tag.Tag;
+import lombok.extern.log4j.Log4j2;
+
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,7 +13,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import lombok.extern.log4j.Log4j2;
 
 @Log4j2
 public class DedicatedData {
@@ -44,6 +45,15 @@ public class DedicatedData {
 
     public static Tag<?> loadNbt(String file) {
         try (NBTInputStream reader = NbtUtils.createNetworkReader(load(file))) {
+            return reader.readTag();
+        } catch (IOException e) {
+            log.error("Unable to load " + file);
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static Tag<?> loadNbtLE(String file) {
+        try (NBTInputStream reader = NbtUtils.createReaderLE(load(file))) {
             return reader.readTag();
         } catch (IOException e) {
             log.error("Unable to load " + file);
